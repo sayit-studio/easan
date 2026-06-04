@@ -77,6 +77,19 @@ function setActiveTab(tab) {
   adminEls.permissionsView.classList.toggle("hidden", tab !== "permissions");
 }
 
+async function readJsonResponse(response, fallbackMessage) {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(`${fallbackMessage}：後端沒有回傳 JSON，請確認 n8n workflow 的 Respond to Webhook 節點已設定 responseBody。`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${fallbackMessage}：後端回傳格式不是 JSON`);
+  }
+}
+
 async function fetchStats() {
   const webhook = ADMIN_CONFIG.statsWebhook;
 
@@ -96,7 +109,7 @@ async function fetchStats() {
     throw new Error(`統計資料讀取失敗：${response.status}`);
   }
 
-  const payload = await response.json();
+  const payload = await readJsonResponse(response, "統計資料讀取失敗");
   if (payload.ok === false) {
     throw new Error(payload.message || "統計資料讀取失敗");
   }
@@ -121,7 +134,7 @@ async function fetchPermissions(action = "list", data = {}) {
     throw new Error(`人員權限讀取失敗：${response.status}`);
   }
 
-  const payload = await response.json();
+  const payload = await readJsonResponse(response, "人員權限處理失敗");
   if (payload.ok === false) {
     throw new Error(payload.message || "人員權限處理失敗");
   }
