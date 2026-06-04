@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>昱盛 OCR 補料單工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="mobile-header">
+    <div class="brand compact">
+      <div class="brand-mark">YS</div>
+      <div>
+        <h1>昱盛 OCR</h1>
+        <p>LIFF 補料單工具</p>
+      </div>
+    </div>
+    <span id="mobilePermissionBadge" class="badge pending">待授權</span>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">YS</div>
+        <div>
+          <h1>昱盛 OCR</h1>
+          <p>補料單核對工具</p>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="工具導覽">
+        <button class="nav-item active" type="button">掃描核對</button>
+        <button class="nav-item" type="button">批次紀錄</button>
+        <button class="nav-item" type="button">權限狀態</button>
+      </nav>
+
+      <section class="status-panel">
+        <span class="status-label">操作人</span>
+        <strong id="operatorName">LINE 使用者</strong>
+        <span id="operatorId" class="muted">等待 LIFF 識別</span>
+        <span id="permissionBadge" class="badge pending">待授權</span>
+      </section>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">現場補料單</p>
+          <h2>掃描、核對、寫入 Notion</h2>
+        </div>
+        <div class="topbar-actions">
+          <button id="loadDemoBtn" class="ghost-btn" type="button">載入範例</button>
+          <button id="settingsBtn" class="icon-btn" type="button" aria-label="設定">⚙</button>
+        </div>
+      </header>
+
+      <section id="settingsPanel" class="settings-panel hidden">
+        <label>
+          LIFF ID
+          <input id="liffIdInput" type="text" placeholder="尚未設定">
+        </label>
+        <label>
+          OCR Webhook
+          <input id="ocrWebhookInput" type="url" placeholder="https://.../ocr-preview">
+        </label>
+      </section>
+
+      <section class="scan-grid">
+        <div class="upload-panel">
+          <div class="section-title">
+            <span>01</span>
+            <h3>上傳圖片</h3>
+          </div>
+
+          <label id="dropZone" class="drop-zone">
+            <input id="fileInput" type="file" accept="image/*" capture="environment">
+            <span class="drop-icon">＋</span>
+            <strong>選擇或拍攝補料單</strong>
+            <small>JPG、PNG、HEIC 皆可先送出測試</small>
+          </label>
+
+          <div id="previewShell" class="preview-shell empty">
+            <img id="imagePreview" alt="補料單預覽">
+            <span>尚未選擇圖片</span>
+          </div>
+
+          <button id="runOcrBtn" class="primary-btn desktop-action" type="button" disabled>執行 OCR 核對</button>
+        </div>
+
+        <div class="summary-panel">
+          <div class="section-title">
+            <span>02</span>
+            <h3>本次結果</h3>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric">
+              <span>總筆數</span>
+              <strong id="totalCount">0</strong>
+            </div>
+            <div class="metric ok">
+              <span>通過</span>
+              <strong id="passedCount">0</strong>
+            </div>
+            <div class="metric danger">
+              <span>異常</span>
+              <strong id="abnormalCount">0</strong>
+            </div>
+          </div>
+
+          <dl class="detail-list">
+            <div>
+              <dt>製令單號</dt>
+              <dd id="orderNo">未判讀</dd>
+            </div>
+            <div>
+              <dt>批次狀態</dt>
+              <dd id="batchStatus">尚未開始</dd>
+            </div>
+            <div>
+              <dt>Notion</dt>
+              <dd id="notionStatus">尚未寫入</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="result-panel">
+        <div class="section-title">
+          <span>03</span>
+          <h3>核對明細</h3>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>狀態</th>
+                <th>品號</th>
+                <th>規格</th>
+                <th>不良</th>
+                <th>需領</th>
+                <th>實領</th>
+                <th>備註</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody">
+              <tr class="empty-row">
+                <td colspan="7">等待 OCR 結果</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p id="editHint" class="result-note">結果僅供核對，不開放現場編輯；OCR 完成後會直接寫入 Notion。</p>
+      </section>
+    </main>
+  </div>
+
+  <div class="mobile-action-bar">
+    <button id="mobileRunOcrBtn" class="primary-btn" type="button" disabled>執行 OCR 並寫入</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
