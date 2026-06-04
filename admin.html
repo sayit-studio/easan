@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>昱盛 OCR 管理統計</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+  <div class="mobile-header">
+    <div class="brand compact">
+      <div class="brand-mark">YS</div>
+      <div>
+        <h1>管理統計</h1>
+        <p>OCR 正確率與次數</p>
+      </div>
+    </div>
+    <a class="badge allowed mobile-link-badge" href="index.html">返回</a>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">YS</div>
+        <div>
+          <h1>昱盛 OCR</h1>
+          <p>管理者統計</p>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="管理選單">
+        <a class="nav-item" href="index.html">OCR 核對</a>
+        <button class="nav-item active" type="button">管理統計</button>
+      </nav>
+
+      <section class="status-panel">
+        <span class="status-label">權限</span>
+        <strong>管理者限定</strong>
+        <span class="muted">需由 n8n webhook 驗證密碼</span>
+      </section>
+    </aside>
+
+    <main class="workspace admin-workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Admin dashboard</p>
+          <h2>執行成效統計</h2>
+        </div>
+        <div class="topbar-actions">
+          <a class="ghost-btn link-btn" href="index.html">返回核對頁</a>
+          <button id="refreshBtn" class="primary-btn" type="button" disabled>重新整理</button>
+        </div>
+      </header>
+
+      <section id="loginPanel" class="admin-login-panel">
+        <div class="section-title">
+          <span>01</span>
+          <h3>管理者登入</h3>
+        </div>
+        <form id="loginForm" class="admin-login-form">
+          <label>
+            管理統計 Webhook
+            <input id="statsWebhookInput" type="url" placeholder="https://.../easan-admin-stats" required>
+          </label>
+          <label>
+            管理密碼
+            <input id="adminPasswordInput" type="password" autocomplete="current-password" required>
+          </label>
+          <label>
+            統計範圍
+            <select id="rangeInput">
+              <option value="7">近 7 天</option>
+              <option value="30" selected>近 30 天</option>
+              <option value="all">全部</option>
+            </select>
+          </label>
+          <button class="primary-btn" type="submit">登入並讀取統計</button>
+        </form>
+        <p id="loginMessage" class="result-note">密碼不會儲存在瀏覽器；Webhook URL 會儲存於本機方便下次使用。</p>
+      </section>
+
+      <section id="dashboardPanel" class="hidden admin-dashboard">
+        <div class="admin-summary-grid">
+          <div class="metric admin-metric">
+            <span>整體正確率</span>
+            <strong id="accuracyRate">0%</strong>
+          </div>
+          <div class="metric">
+            <span>總明細數</span>
+            <strong id="totalItems">0</strong>
+          </div>
+          <div class="metric ok">
+            <span>通過筆數</span>
+            <strong id="passedItems">0</strong>
+          </div>
+          <div class="metric danger">
+            <span>異常筆數</span>
+            <strong id="abnormalItems">0</strong>
+          </div>
+          <div class="metric">
+            <span>掃描批次</span>
+            <strong id="totalBatches">0</strong>
+          </div>
+          <div class="metric">
+            <span>今日執行</span>
+            <strong id="todayBatches">0</strong>
+          </div>
+        </div>
+
+        <section class="result-panel">
+          <div class="section-title">
+            <span>02</span>
+            <h3>人員成效</h3>
+          </div>
+          <div id="operatorList" class="operator-list"></div>
+        </section>
+
+        <section class="result-panel">
+          <div class="section-title">
+            <span>03</span>
+            <h3>近期批次</h3>
+          </div>
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>批次</th>
+                  <th>操作人</th>
+                  <th>製令單號</th>
+                  <th>總數</th>
+                  <th>通過</th>
+                  <th>異常</th>
+                  <th>正確率</th>
+                </tr>
+              </thead>
+              <tbody id="recentBody">
+                <tr class="empty-row">
+                  <td colspan="8">尚未讀取統計資料</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -25,7 +25,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -98,6 +99,7 @@ input {
 }
 
 .nav-item {
+  display: block;
   border: 0;
   border-radius: 8px;
   padding: 12px 14px;
@@ -105,6 +107,7 @@ input {
   color: #cbd5e1;
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .nav-item.active,
@@ -197,9 +200,12 @@ input {
 }
 
 .ghost-btn {
+  display: inline-grid;
+  place-items: center;
   background: var(--surface);
   color: var(--text);
   padding: 0 14px;
+  text-decoration: none;
 }
 
 .icon-btn {
@@ -249,6 +255,10 @@ input {
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--text);
+}
+
+.hidden {
+  display: none !important;
 }
 
 .scan-grid {
@@ -457,6 +467,98 @@ th {
   color: var(--muted);
 }
 
+.admin-login-panel,
+.admin-dashboard .result-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.admin-login-form {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.4fr) minmax(180px, 0.8fr) minmax(140px, 0.6fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.admin-login-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-login-form input,
+.admin-login-form select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.admin-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-metric {
+  background: #ecfdf5;
+  border-color: #99f6e4;
+}
+
+.operator-list {
+  display: grid;
+  gap: 10px;
+}
+
+.operator-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.operator-card strong,
+.operator-card span {
+  display: block;
+}
+
+.operator-card span,
+.operator-stats span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.operator-stats {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 12px;
+  align-items: center;
+  text-align: right;
+}
+
+.operator-stats strong {
+  color: var(--brand-dark);
+}
+
+.admin-table {
+  min-width: 860px;
+}
+
+.mobile-link-badge {
+  text-decoration: none;
+}
+
 @media (max-width: 980px) {
   body {
     padding-bottom: 76px;
@@ -502,7 +604,9 @@ th {
   }
 
   .scan-grid,
-  .settings-panel {
+  .settings-panel,
+  .admin-login-form,
+  .admin-summary-grid {
     grid-template-columns: 1fr;
   }
 
@@ -634,6 +738,21 @@ th {
   .empty-row td::before {
     content: "";
   }
+
+  .admin-page {
+    padding-bottom: 0;
+  }
+
+  .operator-card,
+  .operator-stats {
+    align-items: stretch;
+    grid-template-columns: 1fr 1fr;
+    text-align: left;
+  }
+
+  .operator-card {
+    display: grid;
+  }
 }
 
 @media (max-width: 640px) {
@@ -660,6 +779,11 @@ th {
 
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
