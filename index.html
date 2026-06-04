@@ -15,8 +15,23 @@
         <p>LIFF 補料單工具</p>
       </div>
     </div>
-    <span id="mobilePermissionBadge" class="badge pending">待授權</span>
+    <div class="mobile-header-actions">
+      <span id="mobilePermissionBadge" class="badge pending">待授權</span>
+      <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="開啟選單" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
   </div>
+
+  <nav id="mobileMenu" class="mobile-menu hidden" aria-label="手機選單">
+    <a class="mobile-menu-item active" href="index.html">掃描核對</a>
+    <a class="mobile-menu-item" href="admin.html">管理統計</a>
+    <button class="mobile-menu-item" type="button" disabled>批次紀錄 建置中</button>
+    <button class="mobile-menu-item" type="button" disabled>權限狀態 建置中</button>
+    <button class="mobile-menu-item" type="button" disabled>分析成效 建置中</button>
+  </nav>
 
   <div class="app-shell">
     <aside class="sidebar">

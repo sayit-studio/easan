@@ -34,6 +34,8 @@ const els = {
   mobilePermissionBadge: document.querySelector("#mobilePermissionBadge"),
   loadDemoBtn: document.querySelector("#loadDemoBtn"),
   processingModal: document.querySelector("#processingModal"),
+  mobileMenuBtn: document.querySelector("#mobileMenuBtn"),
+  mobileMenu: document.querySelector("#mobileMenu"),
 };
 
 const demoResults = [
@@ -211,6 +213,21 @@ function handleImageInput(input) {
 
 [els.cameraInput, els.fileInput].forEach((input) => {
   input.addEventListener("change", () => handleImageInput(input));
+});
+
+els.mobileMenuBtn.addEventListener("click", () => {
+  const willOpen = els.mobileMenu.classList.contains("hidden");
+  els.mobileMenu.classList.toggle("hidden", !willOpen);
+  els.mobileMenuBtn.classList.toggle("active", willOpen);
+  els.mobileMenuBtn.setAttribute("aria-expanded", String(willOpen));
+});
+
+els.mobileMenu.addEventListener("click", (event) => {
+  if (event.target.closest("a")) {
+    els.mobileMenu.classList.add("hidden");
+    els.mobileMenuBtn.classList.remove("active");
+    els.mobileMenuBtn.setAttribute("aria-expanded", "false");
+  }
 });
 
 els.runOcrBtn.addEventListener("click", () => {
