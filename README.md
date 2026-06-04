@@ -9,7 +9,7 @@
 - `app.js`：前端流程邏輯，將圖片送到 n8n OCR Webhook。
 - `admin.html`：管理者統計頁，需輸入密碼並透過 n8n webhook 讀取資料。
 - `admin.js`：管理統計頁邏輯，顯示正確率、執行次數、人員成效與近期批次。
-- `n8n_easan_html_ocr_notion_simple.json`：n8n workflow 匯入檔，負責 Gemini OCR、Notion 比對與寫入。
+- `n8n_easan_html_ocr_notion_nodes.json`：n8n workflow 匯入檔，使用 Gemini OCR 與 n8n Notion 節點讀寫 Notion。
 
 ## LIFF Endpoint
 
