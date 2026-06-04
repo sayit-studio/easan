@@ -129,8 +129,18 @@ async function runOcr() {
   form.append("operator", JSON.stringify(state.operator));
 
   const response = await fetch(webhook, { method: "POST", body: form });
-  if (!response.ok) throw new Error(`OCR webhook failed: ${response.status}`);
-  const payload = await response.json();
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(responseText || `OCR webhook failed: ${response.status}`);
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(responseText);
+  } catch (error) {
+    throw new Error(responseText || "OCR webhook 沒有回傳 JSON，請檢查 n8n 執行紀錄");
+  }
+
   state.results = payload.results || [];
   state.orderNo = payload.order_no || "未判讀";
   els.batchStatus.textContent = "已寫入";
