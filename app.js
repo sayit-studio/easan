@@ -13,6 +13,7 @@ const state = {
 const CONFIG = {
   liffId: "2010295228-FaJJlXg9",
   liffUrl: "https://liff.line.me/2010295228-FaJJlXg9",
+  liffEndpoint: "https://easan.pages.dev/",
   ocrWebhook: "https://sayitstudio.zeabur.app/webhook/easan-html-ocr",
   permissionWebhook: "https://sayitstudio.zeabur.app/webhook/easan-operator-permission",
 };
@@ -50,11 +51,12 @@ function renderOperator() {
 }
 
 function renderInputState() {
-  const canUpload = state.operator.allowed && !state.isProcessing;
-  els.cameraInput.disabled = !canUpload;
-  els.fileInput.disabled = !canUpload;
-  els.runOcrBtn.disabled = !canUpload || !state.imageFile;
-  els.mobileRunOcrBtn.disabled = !canUpload || !state.imageFile;
+  const canChooseImage = !state.isProcessing;
+  const canRunOcr = state.operator.allowed && !state.isProcessing && Boolean(state.imageFile);
+  els.cameraInput.disabled = !canChooseImage;
+  els.fileInput.disabled = !canChooseImage;
+  els.runOcrBtn.disabled = !canRunOcr;
+  els.mobileRunOcrBtn.disabled = !canRunOcr;
 }
 
 async function checkOperatorPermission(operator) {
@@ -92,7 +94,7 @@ async function initLiffProfile() {
     await window.liff.init({ liffId: CONFIG.liffId });
 
     if (!window.liff.isLoggedIn()) {
-      window.liff.login({ redirectUri: window.location.href });
+      window.liff.login({ redirectUri: CONFIG.liffEndpoint });
       return;
     }
 
@@ -218,18 +220,13 @@ async function runOcr() {
 }
 
 function handleImageInput(input) {
-  if (!state.operator.allowed) {
-    input.value = "";
-    els.batchStatus.textContent = "未開通";
-    return;
-  }
   const file = input.files?.[0];
   if (!file) return;
   state.imageFile = file;
   els.imagePreview.src = URL.createObjectURL(file);
   els.previewShell.classList.add("has-image");
-  els.runOcrBtn.disabled = false;
-  els.mobileRunOcrBtn.disabled = false;
+  els.batchStatus.textContent = state.operator.allowed ? "待執行" : "未開通";
+  renderInputState();
 }
 
 [els.cameraInput, els.fileInput].forEach((input) => {
