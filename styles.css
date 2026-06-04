@@ -812,8 +812,47 @@ th {
     align-items: flex-start;
   }
 
+  .admin-page .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-page .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
   .topbar h2 {
     font-size: 22px;
+  }
+
+  .admin-page .eyebrow {
+    font-size: 12px;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 4px;
+  }
+
+  .admin-tab {
+    flex: 1 0 120px;
+    border-bottom: 0;
+    border-radius: 6px;
+  }
+
+  .admin-tab.active {
+    background: #e0f2f1;
+    color: var(--text);
+  }
+
+  .admin-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .upload-panel,
@@ -995,6 +1034,10 @@ th {
     display: grid;
   }
 
+  .operator-stats {
+    gap: 8px;
+  }
+
   .permission-card {
     grid-template-columns: 1fr;
     align-items: stretch;
@@ -1035,6 +1078,10 @@ th {
   .admin-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .admin-page .topbar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .upload-choice-grid {
