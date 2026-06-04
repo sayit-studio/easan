@@ -17,7 +17,7 @@ GitHub Pages 啟用後，LIFF Endpoint 可使用：
 
 `https://sayit-studio.github.io/easan/`
 
-進入頁面後，在設定中填入 n8n production webhook URL。
+OCR 頁面的 LIFF 入口與 n8n production webhook 已寫入前端設定，現場頁面不顯示設定欄位。
 
 管理頁網址：
 

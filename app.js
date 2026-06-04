@@ -8,6 +8,11 @@ const state = {
   },
 };
 
+const CONFIG = {
+  liffUrl: "https://liff.line.me/2010295228-FaJJlXg9",
+  ocrWebhook: "https://sayitstudio.zeabur.app/webhook/easan-html-ocr",
+};
+
 const els = {
   cameraInput: document.querySelector("#cameraInput"),
   fileInput: document.querySelector("#fileInput"),
@@ -27,10 +32,6 @@ const els = {
   permissionBadge: document.querySelector("#permissionBadge"),
   mobilePermissionBadge: document.querySelector("#mobilePermissionBadge"),
   loadDemoBtn: document.querySelector("#loadDemoBtn"),
-  settingsBtn: document.querySelector("#settingsBtn"),
-  settingsPanel: document.querySelector("#settingsPanel"),
-  liffIdInput: document.querySelector("#liffIdInput"),
-  ocrWebhookInput: document.querySelector("#ocrWebhookInput"),
 };
 
 const demoResults = [
@@ -62,19 +63,6 @@ const demoResults = [
     note: "品號無法判讀",
   },
 ];
-
-function saveSettings() {
-  localStorage.setItem("ocrToolSettings", JSON.stringify({
-    liffId: els.liffIdInput.value.trim(),
-    ocrWebhook: els.ocrWebhookInput.value.trim(),
-  }));
-}
-
-function loadSettings() {
-  const settings = JSON.parse(localStorage.getItem("ocrToolSettings") || "{}");
-  els.liffIdInput.value = settings.liffId || "";
-  els.ocrWebhookInput.value = settings.ocrWebhook || "";
-}
 
 function renderOperator() {
   els.operatorName.textContent = state.operator.name;
@@ -132,18 +120,9 @@ function escapeHtml(value) {
 }
 
 async function runOcr() {
-  const webhook = els.ocrWebhookInput.value.trim();
+  const webhook = CONFIG.ocrWebhook;
   els.batchStatus.textContent = "OCR 中";
   els.notionStatus.textContent = "尚未寫入";
-
-  if (!webhook) {
-    await wait(300);
-    state.results = [];
-    els.batchStatus.textContent = "尚未設定 OCR Webhook";
-    els.notionStatus.textContent = "請先在設定填入 n8n OCR Webhook";
-    renderResults();
-    return;
-  }
 
   const form = new FormData();
   form.append("image", state.imageFile);
@@ -157,10 +136,6 @@ async function runOcr() {
   els.batchStatus.textContent = "已寫入";
   els.notionStatus.textContent = payload.first_notion_url ? "已寫入 Notion" : "已完成";
   renderResults();
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function handleImageInput(input) {
@@ -205,14 +180,5 @@ els.loadDemoBtn.addEventListener("click", () => {
   renderResults();
 });
 
-els.settingsBtn.addEventListener("click", () => {
-  els.settingsPanel.classList.toggle("hidden");
-});
-
-[els.liffIdInput, els.ocrWebhookInput].forEach((input) => {
-  input.addEventListener("change", saveSettings);
-});
-
-loadSettings();
 renderOperator();
 renderResults();
