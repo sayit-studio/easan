@@ -1,6 +1,7 @@
 const state = {
   imageFile: null,
   results: [],
+  isProcessing: false,
   operator: {
     name: "LINE 使用者",
     userId: "",
@@ -31,6 +32,7 @@ const els = {
   permissionBadge: document.querySelector("#permissionBadge"),
   mobilePermissionBadge: document.querySelector("#mobilePermissionBadge"),
   loadDemoBtn: document.querySelector("#loadDemoBtn"),
+  processingModal: document.querySelector("#processingModal"),
 };
 
 const demoResults = [
@@ -118,31 +120,48 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
+function setProcessing(isProcessing) {
+  state.isProcessing = isProcessing;
+  els.processingModal.classList.toggle("hidden", !isProcessing);
+  els.runOcrBtn.disabled = isProcessing || !state.imageFile;
+  els.mobileRunOcrBtn.disabled = isProcessing || !state.imageFile;
+  els.cameraInput.disabled = isProcessing;
+  els.fileInput.disabled = isProcessing;
+}
+
 async function runOcr() {
+  if (state.isProcessing || !state.imageFile) return;
   const webhook = CONFIG.ocrWebhook;
+  setProcessing(true);
   els.batchStatus.textContent = "OCR 中";
 
-  const form = new FormData();
-  form.append("image", state.imageFile);
-  form.append("operator", JSON.stringify(state.operator));
-
-  const response = await fetch(webhook, { method: "POST", body: form });
-  const responseText = await response.text();
-  if (!response.ok) {
-    throw new Error(responseText || `OCR webhook failed: ${response.status}`);
-  }
-
-  let payload;
   try {
-    payload = JSON.parse(responseText);
-  } catch (error) {
-    throw new Error(responseText || "OCR webhook 沒有回傳 JSON，請檢查 n8n 執行紀錄");
-  }
+    const form = new FormData();
+    form.append("image", state.imageFile);
+    form.append("operator", JSON.stringify(state.operator));
 
-  state.results = payload.results || [];
-  state.orderNo = payload.order_no || "未判讀";
-  els.batchStatus.textContent = "成功";
-  renderResults();
+    const response = await fetch(webhook, { method: "POST", body: form });
+    const responseText = await response.text();
+    if (!response.ok) {
+      throw new Error(responseText || `OCR webhook failed: ${response.status}`);
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(responseText || "OCR webhook 沒有回傳 JSON，請檢查 n8n 執行紀錄");
+    }
+
+    state.results = payload.results || [];
+    state.orderNo = payload.order_no || "未判讀";
+    els.batchStatus.textContent = "成功";
+    renderResults();
+  } catch (error) {
+    els.batchStatus.textContent = "失敗";
+  } finally {
+    setProcessing(false);
+  }
 }
 
 function handleImageInput(input) {
@@ -160,15 +179,11 @@ function handleImageInput(input) {
 });
 
 els.runOcrBtn.addEventListener("click", () => {
-  runOcr().catch((error) => {
-    els.batchStatus.textContent = "失敗";
-  });
+  runOcr();
 });
 
 els.mobileRunOcrBtn.addEventListener("click", () => {
-  runOcr().catch((error) => {
-    els.batchStatus.textContent = "失敗";
-  });
+  runOcr();
 });
 
 els.loadDemoBtn.addEventListener("click", () => {

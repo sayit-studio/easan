@@ -154,6 +154,15 @@
     <button id="mobileRunOcrBtn" class="primary-btn" type="button" disabled>執行 OCR 並寫入</button>
   </div>
 
+  <div id="processingModal" class="processing-modal hidden" role="alertdialog" aria-live="assertive" aria-modal="true">
+    <div class="processing-card">
+      <div class="processing-spinner" aria-hidden="true"></div>
+      <strong>OCR 核對中</strong>
+      <p>請勿關閉頁面，請稍後。</p>
+      <small>系統正在辨識圖片、比對主檔並寫入紀錄。</small>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
