@@ -26,7 +26,6 @@ const els = {
   abnormalCount: document.querySelector("#abnormalCount"),
   orderNo: document.querySelector("#orderNo"),
   batchStatus: document.querySelector("#batchStatus"),
-  notionStatus: document.querySelector("#notionStatus"),
   operatorName: document.querySelector("#operatorName"),
   operatorId: document.querySelector("#operatorId"),
   permissionBadge: document.querySelector("#permissionBadge"),
@@ -122,7 +121,6 @@ function escapeHtml(value) {
 async function runOcr() {
   const webhook = CONFIG.ocrWebhook;
   els.batchStatus.textContent = "OCR 中";
-  els.notionStatus.textContent = "尚未寫入";
 
   const form = new FormData();
   form.append("image", state.imageFile);
@@ -143,8 +141,7 @@ async function runOcr() {
 
   state.results = payload.results || [];
   state.orderNo = payload.order_no || "未判讀";
-  els.batchStatus.textContent = "已寫入";
-  els.notionStatus.textContent = payload.first_notion_url ? "已寫入 Notion" : "已完成";
+  els.batchStatus.textContent = "成功";
   renderResults();
 }
 
@@ -165,14 +162,12 @@ function handleImageInput(input) {
 els.runOcrBtn.addEventListener("click", () => {
   runOcr().catch((error) => {
     els.batchStatus.textContent = "失敗";
-    els.notionStatus.textContent = error.message;
   });
 });
 
 els.mobileRunOcrBtn.addEventListener("click", () => {
   runOcr().catch((error) => {
     els.batchStatus.textContent = "失敗";
-    els.notionStatus.textContent = error.message;
   });
 });
 
@@ -185,7 +180,6 @@ els.loadDemoBtn.addEventListener("click", () => {
   state.results = structuredClone(demoResults);
   state.orderNo = "510A-20230420093";
   els.batchStatus.textContent = "待確認";
-  els.notionStatus.textContent = "尚未寫入";
   renderOperator();
   renderResults();
 });
