@@ -10,6 +10,7 @@ const state = {
 };
 
 const CONFIG = {
+  liffId: "2010295228-FaJJlXg9",
   liffUrl: "https://liff.line.me/2010295228-FaJJlXg9",
   ocrWebhook: "https://sayitstudio.zeabur.app/webhook/easan-html-ocr",
 };
@@ -72,6 +73,40 @@ function renderOperator() {
   els.permissionBadge.className = `badge ${state.operator.allowed ? "allowed" : "pending"}`;
   els.mobilePermissionBadge.textContent = state.operator.allowed ? "已開通" : "待授權";
   els.mobilePermissionBadge.className = `badge ${state.operator.allowed ? "allowed" : "pending"}`;
+}
+
+async function initLiffProfile() {
+  renderOperator();
+
+  if (!window.liff) {
+    state.operator.name = "非 LIFF 測試環境";
+    renderOperator();
+    return;
+  }
+
+  try {
+    await window.liff.init({ liffId: CONFIG.liffId });
+
+    if (!window.liff.isLoggedIn()) {
+      window.liff.login({ redirectUri: window.location.href });
+      return;
+    }
+
+    const profile = await window.liff.getProfile();
+    state.operator = {
+      name: profile.displayName || "LINE 使用者",
+      userId: profile.userId || "",
+      allowed: false,
+    };
+  } catch (error) {
+    state.operator = {
+      name: "LIFF 識別失敗",
+      userId: "",
+      allowed: false,
+    };
+  }
+
+  renderOperator();
 }
 
 function renderSummary(orderNo = "未判讀") {
@@ -199,5 +234,5 @@ els.loadDemoBtn.addEventListener("click", () => {
   renderResults();
 });
 
-renderOperator();
+initLiffProfile();
 renderResults();
