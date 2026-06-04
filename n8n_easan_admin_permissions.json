@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json || {};\nconst body = item.body || item;\nconst expectedPassword = process.env.EASAN_ADMIN_PASSWORD || 'CHANGE_ME';\nconst password = String(body.password || '').trim();\nconst action = String(body.action || 'list').trim();\nconst pageId = String(body.pageId || '').trim();\nconst status = ['待審核', '已開通', '停用'].includes(body.status) ? body.status : '待審核';\nconst ocrEnabled = body.ocrEnabled === true || body.ocrEnabled === 'true';\nconst features = ocrEnabled ? ['OCR補料單'] : [];\n\nreturn [{\n  json: {\n    ok: password && password === expectedPassword,\n    action,\n    pageId,\n    status,\n    ocrEnabled,\n    features,\n    response: {\n      ok: false,\n      message: '管理密碼錯誤或沒有權限'\n    }\n  }\n}];"
+        "jsCode": "const item = $input.first().json || {};\nconst body = item.body || item;\nconst expectedPassword = 'gundam';\nconst password = String(body.password || '').trim();\nconst action = String(body.action || 'list').trim();\nconst pageId = String(body.pageId || '').trim();\nconst status = ['待審核', '已開通', '停用'].includes(body.status) ? body.status : '待審核';\nconst ocrEnabled = body.ocrEnabled === true || body.ocrEnabled === 'true';\nconst features = ocrEnabled ? ['OCR補料單'] : [];\n\nreturn [{\n  json: {\n    ok: password && password === expectedPassword,\n    action,\n    pageId,\n    status,\n    ocrEnabled,\n    features,\n    response: {\n      ok: false,\n      message: '管理密碼錯誤或沒有權限'\n    }\n  }\n}];"
       },
       "id": "d3a8c2b8-8f82-4a0d-8f68-000000000002",
       "name": "驗證管理請求",
