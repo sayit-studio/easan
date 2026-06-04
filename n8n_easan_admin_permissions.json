@@ -174,11 +174,12 @@
       "position": [
         340,
         -40
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "function getValue(obj, keys) {\n  for (const key of keys) {\n    if (obj?.[key] !== undefined && obj?.[key] !== null) return obj[key];\n  }\n  return '';\n}\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  const text = String(value ?? '').trim();\n  if (!text) return [];\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  } catch (error) {}\n  return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);\n}\n\nconst operators = $input.all().map((item) => {\n  const row = item.json || {};\n  const url = row.url || '';\n  return {\n    pageId: row.id || row.pageId || url,\n    name: getValue(row, ['名稱', 'property_名稱', 'name', 'Name', 'title']),\n    userId: getValue(row, ['LINE userId', 'property_LINE userId']),\n    displayName: getValue(row, ['LINE顯示名稱', 'property_LINE顯示名稱']),\n    status: getValue(row, ['狀態', 'property_狀態']) || '待審核',\n    role: getValue(row, ['角色', 'property_角色']),\n    features: toList(getValue(row, ['可使用功能', 'property_可使用功能'])),\n    note: getValue(row, ['備註', 'property_備註'])\n  };\n});\n\noperators.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));\n\nreturn [{\n  json: {\n    ok: true,\n    operators\n  }\n}];"
+        "jsCode": "function getValue(obj, keys) {\n  for (const key of keys) {\n    if (obj?.[key] !== undefined && obj?.[key] !== null) return obj[key];\n  }\n  return '';\n}\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  const text = String(value ?? '').trim();\n  if (!text) return [];\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  } catch (error) {}\n  return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);\n}\n\nconst operators = $input.all().map((item) => {\n  const row = item.json || {};\n  const url = row.url || '';\n  return {\n    pageId: row.id || row.pageId || url,\n    name: getValue(row, ['名稱', 'property_名稱', 'name', 'Name', 'title']),\n    userId: getValue(row, ['LINE userId', 'property_LINE userId']),\n    displayName: getValue(row, ['LINE顯示名稱', 'property_LINE顯示名稱']),\n    status: getValue(row, ['狀態', 'property_狀態']) || '待審核',\n    role: getValue(row, ['角色', 'property_角色']),\n    features: toList(getValue(row, ['可使用功能', 'property_可使用功能'])),\n    note: getValue(row, ['備註', 'property_備註'])\n  };\n}).filter((operator) => operator.pageId || operator.userId || operator.name);\n\noperators.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-Hant'));\n\nconst response = {\n  ok: true,\n  operators\n};\n\nreturn [{ json: { ...response, response } }];"
       },
       "id": "d3a8c2b8-8f82-4a0d-8f68-000000000008",
       "name": "整理人員權限清單",
@@ -192,7 +193,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
+        "responseBody": "={{ JSON.stringify($json.response || $json) }}",
         "options": {}
       },
       "id": "d3a8c2b8-8f82-4a0d-8f68-000000000009",

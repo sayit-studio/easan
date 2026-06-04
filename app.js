@@ -52,11 +52,24 @@ function renderOperator() {
 
 function renderInputState() {
   const canChooseImage = !state.isProcessing;
-  const canRunOcr = state.operator.allowed && !state.isProcessing && Boolean(state.imageFile);
+  const canRunOcr = !state.isProcessing && Boolean(state.imageFile);
   els.cameraInput.disabled = !canChooseImage;
   els.fileInput.disabled = !canChooseImage;
   els.runOcrBtn.disabled = !canRunOcr;
   els.mobileRunOcrBtn.disabled = !canRunOcr;
+}
+
+async function readJsonResponse(response, fallbackMessage) {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(`${fallbackMessage}：後端沒有回傳資料`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${fallbackMessage}：後端回傳格式不是 JSON`);
+  }
 }
 
 async function checkOperatorPermission(operator) {
@@ -73,7 +86,7 @@ async function checkOperatorPermission(operator) {
 
   if (!response.ok) return { allowed: false };
 
-  const payload = await response.json();
+  const payload = await readJsonResponse(response, "權限查詢失敗");
   return {
     allowed: payload.allowed === true || payload.ok === true,
     name: payload.name || payload.displayName || operator.name,
@@ -182,10 +195,31 @@ function setProcessing(isProcessing) {
 
 async function runOcr() {
   if (state.isProcessing || !state.imageFile) return;
+
+  if (!state.operator.userId) {
+    els.batchStatus.textContent = "尚未取得 LINE 身分";
+    return;
+  }
+
+  els.batchStatus.textContent = "檢查權限中";
+  try {
+    const permission = await checkOperatorPermission(state.operator);
+    state.operator = {
+      ...state.operator,
+      name: permission.name || state.operator.name,
+      allowed: permission.allowed,
+    };
+    renderOperator();
+  } catch (error) {
+    els.batchStatus.textContent = error.message;
+    return;
+  }
+
   if (!state.operator.allowed) {
     els.batchStatus.textContent = "未開通";
     return;
   }
+
   const webhook = CONFIG.ocrWebhook;
   setProcessing(true);
   els.batchStatus.textContent = "OCR 中";
@@ -225,7 +259,7 @@ function handleImageInput(input) {
   state.imageFile = file;
   els.imagePreview.src = URL.createObjectURL(file);
   els.previewShell.classList.add("has-image");
-  els.batchStatus.textContent = state.operator.allowed ? "待執行" : "未開通";
+  els.batchStatus.textContent = "待執行";
   renderInputState();
 }
 
