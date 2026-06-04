@@ -282,6 +282,12 @@ input {
   font-size: 13px;
 }
 
+.upload-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .drop-zone {
   min-height: 150px;
   border: 1px dashed #9aa8b7;
@@ -292,6 +298,11 @@ input {
   text-align: center;
   padding: 20px;
   cursor: pointer;
+}
+
+.drop-zone.secondary-upload {
+  background: #fff;
+  border-style: solid;
 }
 
 .drop-zone input {
@@ -519,6 +530,10 @@ th {
     min-height: 132px;
   }
 
+  .upload-choice-grid {
+    gap: 10px;
+  }
+
   .preview-shell {
     min-height: 260px;
     max-height: 42vh;
@@ -646,6 +661,10 @@ th {
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .upload-choice-grid {
+    grid-template-columns: 1fr;
   }
 
   .metric {

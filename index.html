@@ -72,12 +72,21 @@
             <h3>上傳圖片</h3>
           </div>
 
-          <label id="dropZone" class="drop-zone">
-            <input id="fileInput" type="file" accept="image/*" capture="environment">
-            <span class="drop-icon">＋</span>
-            <strong>選擇或拍攝補料單</strong>
-            <small>JPG、PNG、HEIC 皆可先送出測試</small>
-          </label>
+          <div class="upload-choice-grid">
+            <label id="dropZone" class="drop-zone">
+              <input id="cameraInput" type="file" accept="image/*" capture="environment">
+              <span class="drop-icon">＋</span>
+              <strong>拍照上傳</strong>
+              <small>直接開啟手機相機</small>
+            </label>
+
+            <label class="drop-zone secondary-upload">
+              <input id="fileInput" type="file" accept="image/*">
+              <span class="drop-icon">檔</span>
+              <strong>選擇檔案</strong>
+              <small>可從相簿或檔案上傳 JPG、PNG、HEIC</small>
+            </label>
+          </div>
 
           <div id="previewShell" class="preview-shell empty">
             <img id="imagePreview" alt="補料單預覽">

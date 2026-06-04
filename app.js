@@ -9,6 +9,7 @@ const state = {
 };
 
 const els = {
+  cameraInput: document.querySelector("#cameraInput"),
   fileInput: document.querySelector("#fileInput"),
   previewShell: document.querySelector("#previewShell"),
   imagePreview: document.querySelector("#imagePreview"),
@@ -162,14 +163,18 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-els.fileInput.addEventListener("change", () => {
-  const file = els.fileInput.files?.[0];
+function handleImageInput(input) {
+  const file = input.files?.[0];
   if (!file) return;
   state.imageFile = file;
   els.imagePreview.src = URL.createObjectURL(file);
   els.previewShell.classList.add("has-image");
   els.runOcrBtn.disabled = false;
   els.mobileRunOcrBtn.disabled = false;
+}
+
+[els.cameraInput, els.fileInput].forEach((input) => {
+  input.addEventListener("change", () => handleImageInput(input));
 });
 
 els.runOcrBtn.addEventListener("click", () => {
