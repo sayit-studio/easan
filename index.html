@@ -3,20 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>昱盛 OCR 補料單工具</title>
+  <title>比對現場補料單</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="mobile-header">
     <div class="brand compact">
-      <div class="brand-mark">YS</div>
+      <div class="brand-mark">昱</div>
       <div>
-        <h1>昱盛 OCR</h1>
-        <p>LIFF 補料單工具</p>
+        <h1>比對現場補料單</h1>
       </div>
     </div>
     <div class="mobile-header-actions">
-      <span id="mobilePermissionBadge" class="badge pending">待授權</span>
+      <span id="mobilePermissionBadge" class="badge pending">待開通</span>
       <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="開啟選單" aria-expanded="false">
         <span></span>
         <span></span>
@@ -28,43 +27,34 @@
   <nav id="mobileMenu" class="mobile-menu hidden" aria-label="手機選單">
     <a class="mobile-menu-item active" href="index.html">掃描核對</a>
     <a class="mobile-menu-item" href="admin.html">管理統計</a>
-    <button class="mobile-menu-item" type="button" disabled>批次紀錄 建置中</button>
-    <button class="mobile-menu-item" type="button" disabled>權限狀態 建置中</button>
-    <button class="mobile-menu-item" type="button" disabled>分析成效 建置中</button>
   </nav>
 
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">YS</div>
+        <div class="brand-mark">昱</div>
         <div>
-          <h1>昱盛 OCR</h1>
-          <p>補料單核對工具</p>
+          <h1>比對現場補料單</h1>
         </div>
       </div>
 
       <nav class="nav-list" aria-label="工具導覽">
         <button class="nav-item active" type="button">掃描核對</button>
-        <button class="nav-item" type="button">批次紀錄</button>
-        <button class="nav-item" type="button">權限狀態</button>
+        <a class="nav-item" href="admin.html">管理統計</a>
       </nav>
 
       <section class="status-panel">
         <span class="status-label">操作人</span>
         <strong id="operatorName">LINE 使用者</strong>
         <span id="operatorId" class="muted">等待 LIFF 識別</span>
-        <span id="permissionBadge" class="badge pending">待授權</span>
+        <span id="permissionBadge" class="badge pending">待開通</span>
       </section>
     </aside>
 
     <main class="workspace">
       <header class="topbar">
         <div>
-          <p class="eyebrow">現場補料單</p>
-          <h2>掃描、核對、寫入 Notion</h2>
-        </div>
-        <div class="topbar-actions">
-          <button id="loadDemoBtn" class="ghost-btn" type="button">載入範例</button>
+          <h2>比對現場補料單</h2>
         </div>
       </header>
 
@@ -159,8 +149,6 @@
             </tbody>
           </table>
         </div>
-
-        <p id="editHint" class="result-note">結果僅供核對，不開放現場編輯；OCR 完成後會直接寫入 Notion。</p>
       </section>
     </main>
   </div>

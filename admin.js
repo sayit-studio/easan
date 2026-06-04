@@ -2,17 +2,32 @@ const adminState = {
   password: "",
   range: "30",
   data: null,
+  activeTab: "stats",
+  permissions: [],
+};
+
+const ADMIN_CONFIG = {
+  statsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-stats",
+  permissionsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-permissions",
 };
 
 const adminEls = {
   loginPanel: document.querySelector("#loginPanel"),
   dashboardPanel: document.querySelector("#dashboardPanel"),
   loginForm: document.querySelector("#loginForm"),
-  statsWebhookInput: document.querySelector("#statsWebhookInput"),
   adminPasswordInput: document.querySelector("#adminPasswordInput"),
   rangeInput: document.querySelector("#rangeInput"),
   loginMessage: document.querySelector("#loginMessage"),
   refreshBtn: document.querySelector("#refreshBtn"),
+  statsTabBtn: document.querySelector("#statsTabBtn"),
+  permissionsTabBtn: document.querySelector("#permissionsTabBtn"),
+  statsView: document.querySelector("#statsView"),
+  permissionsView: document.querySelector("#permissionsView"),
+  permissionsRefreshBtn: document.querySelector("#permissionsRefreshBtn"),
+  permissionMessage: document.querySelector("#permissionMessage"),
+  permissionList: document.querySelector("#permissionList"),
+  mobileMenuBtn: document.querySelector("#mobileMenuBtn"),
+  mobileMenu: document.querySelector("#mobileMenu"),
   accuracyRate: document.querySelector("#accuracyRate"),
   totalItems: document.querySelector("#totalItems"),
   passedItems: document.querySelector("#passedItems"),
@@ -22,17 +37,6 @@ const adminEls = {
   operatorList: document.querySelector("#operatorList"),
   recentBody: document.querySelector("#recentBody"),
 };
-
-function loadAdminSettings() {
-  const settings = JSON.parse(localStorage.getItem("ocrAdminSettings") || "{}");
-  adminEls.statsWebhookInput.value = settings.statsWebhook || "";
-}
-
-function saveAdminSettings() {
-  localStorage.setItem("ocrAdminSettings", JSON.stringify({
-    statsWebhook: adminEls.statsWebhookInput.value.trim(),
-  }));
-}
 
 function toNumber(value) {
   const number = Number(value);
@@ -52,9 +56,29 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;");
 }
 
+function featureList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item?.name || item).trim()).filter(Boolean);
+  const text = String(value ?? "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item).trim()).filter(Boolean);
+  } catch (error) {
+    // Keep parsing permissive because Notion multi-select may arrive as text.
+  }
+  return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
+}
+
+function setActiveTab(tab) {
+  adminState.activeTab = tab;
+  adminEls.statsTabBtn.classList.toggle("active", tab === "stats");
+  adminEls.permissionsTabBtn.classList.toggle("active", tab === "permissions");
+  adminEls.statsView.classList.toggle("hidden", tab !== "stats");
+  adminEls.permissionsView.classList.toggle("hidden", tab !== "permissions");
+}
+
 async function fetchStats() {
-  const webhook = adminEls.statsWebhookInput.value.trim();
-  if (!webhook) throw new Error("請先填入管理統計 Webhook");
+  const webhook = ADMIN_CONFIG.statsWebhook;
 
   const response = await fetch(webhook, {
     method: "POST",
@@ -69,12 +93,37 @@ async function fetchStats() {
     throw new Error("管理密碼錯誤或沒有權限");
   }
   if (!response.ok) {
-    throw new Error(`統計 Webhook 失敗：${response.status}`);
+    throw new Error(`統計資料讀取失敗：${response.status}`);
   }
 
   const payload = await response.json();
   if (payload.ok === false) {
     throw new Error(payload.message || "統計資料讀取失敗");
+  }
+  return payload;
+}
+
+async function fetchPermissions(action = "list", data = {}) {
+  const response = await fetch(ADMIN_CONFIG.permissionsWebhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      password: adminState.password,
+      action,
+      ...data,
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("管理密碼錯誤或沒有權限");
+  }
+  if (!response.ok) {
+    throw new Error(`人員權限讀取失敗：${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (payload.ok === false) {
+    throw new Error(payload.message || "人員權限處理失敗");
   }
   return payload;
 }
@@ -161,6 +210,52 @@ function renderDashboard(payload) {
   }
 }
 
+function renderPermissions(operators) {
+  adminState.permissions = operators || [];
+
+  if (!adminState.permissions.length) {
+    adminEls.permissionList.innerHTML = "";
+    adminEls.permissionMessage.textContent = "尚無人員權限資料";
+    return;
+  }
+
+  adminEls.permissionMessage.textContent = "";
+  adminEls.permissionList.innerHTML = adminState.permissions.map((operator) => {
+    const features = featureList(operator.features || operator["可使用功能"]);
+    const ocrEnabled = features.includes("OCR補料單");
+    const pageId = escapeHtml(operator.pageId || operator.id || "");
+    const status = operator.status || "待審核";
+    return `
+      <article class="permission-card" data-page-id="${pageId}">
+        <div class="permission-person">
+          <strong>${escapeHtml(operator.name || "未命名")}</strong>
+          <span>${escapeHtml(operator.userId || "")}</span>
+          <small>${escapeHtml(operator.displayName || "")}</small>
+        </div>
+        <label>
+          狀態
+          <select class="permission-status">
+            <option value="待審核" ${status === "待審核" ? "selected" : ""}>待審核</option>
+            <option value="已開通" ${status === "已開通" ? "selected" : ""}>已開通</option>
+            <option value="停用" ${status === "停用" ? "selected" : ""}>停用</option>
+          </select>
+        </label>
+        <label class="permission-toggle">
+          <input class="permission-ocr" type="checkbox" ${ocrEnabled ? "checked" : ""}>
+          <span>OCR補料單</span>
+        </label>
+        <button class="primary-btn permission-save-btn" type="button">儲存</button>
+      </article>
+    `;
+  }).join("");
+}
+
+async function loadPermissions() {
+  adminEls.permissionMessage.textContent = "讀取人員權限中...";
+  const payload = await fetchPermissions("list");
+  renderPermissions(payload.operators || []);
+}
+
 async function loadStats() {
   adminEls.loginMessage.textContent = "讀取統計資料中...";
   const payload = await fetchStats();
@@ -170,13 +265,15 @@ async function loadStats() {
   adminEls.dashboardPanel.classList.remove("hidden");
   adminEls.refreshBtn.disabled = false;
   adminEls.loginMessage.textContent = "";
+  loadPermissions().catch((error) => {
+    adminEls.permissionMessage.textContent = error.message;
+  });
 }
 
 adminEls.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   adminState.password = adminEls.adminPasswordInput.value;
   adminState.range = adminEls.rangeInput.value;
-  saveAdminSettings();
   loadStats().catch((error) => {
     adminEls.loginMessage.textContent = error.message;
   });
@@ -192,4 +289,61 @@ adminEls.refreshBtn.addEventListener("click", () => {
   });
 });
 
-loadAdminSettings();
+adminEls.statsTabBtn.addEventListener("click", () => {
+  setActiveTab("stats");
+});
+
+adminEls.permissionsTabBtn.addEventListener("click", () => {
+  setActiveTab("permissions");
+  if (!adminState.permissions.length) {
+    loadPermissions().catch((error) => {
+      adminEls.permissionMessage.textContent = error.message;
+    });
+  }
+});
+
+adminEls.permissionsRefreshBtn.addEventListener("click", () => {
+  loadPermissions().catch((error) => {
+    adminEls.permissionMessage.textContent = error.message;
+  });
+});
+
+adminEls.permissionList.addEventListener("click", (event) => {
+  const button = event.target.closest(".permission-save-btn");
+  if (!button) return;
+
+  const card = button.closest(".permission-card");
+  const pageId = card.dataset.pageId;
+  const status = card.querySelector(".permission-status").value;
+  const ocrEnabled = card.querySelector(".permission-ocr").checked;
+
+  button.disabled = true;
+  button.textContent = "儲存中";
+  fetchPermissions("update", { pageId, status, ocrEnabled })
+    .then((payload) => {
+      renderPermissions(payload.operators || []);
+      adminEls.permissionMessage.textContent = "權限已更新";
+    })
+    .catch((error) => {
+      adminEls.permissionMessage.textContent = error.message;
+    })
+    .finally(() => {
+      button.disabled = false;
+      button.textContent = "儲存";
+    });
+});
+
+adminEls.mobileMenuBtn?.addEventListener("click", () => {
+  const willOpen = adminEls.mobileMenu.classList.contains("hidden");
+  adminEls.mobileMenu.classList.toggle("hidden", !willOpen);
+  adminEls.mobileMenuBtn.classList.toggle("active", willOpen);
+  adminEls.mobileMenuBtn.setAttribute("aria-expanded", String(willOpen));
+});
+
+adminEls.mobileMenu?.addEventListener("click", (event) => {
+  if (event.target.closest("a")) {
+    adminEls.mobileMenu.classList.add("hidden");
+    adminEls.mobileMenuBtn.classList.remove("active");
+    adminEls.mobileMenuBtn.setAttribute("aria-expanded", "false");
+  }
+});
