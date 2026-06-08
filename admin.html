@@ -89,6 +89,7 @@
         <div class="admin-tabs" role="tablist" aria-label="管理分頁">
           <button id="statsTabBtn" class="admin-tab active" type="button" data-tab="stats">執行成效</button>
           <button id="permissionsTabBtn" class="admin-tab" type="button" data-tab="permissions">人員權限</button>
+          <button id="masterImportTabBtn" class="admin-tab" type="button" data-tab="masterImport">主檔匯入</button>
         </div>
 
         <div id="statsView" class="admin-tab-view">
@@ -167,6 +168,67 @@
             </div>
             <div id="permissionMessage" class="result-note">讀取人員權限中...</div>
             <div id="permissionList" class="permission-list"></div>
+          </section>
+        </div>
+
+        <div id="masterImportView" class="admin-tab-view hidden">
+          <section class="result-panel">
+            <div class="section-title">
+              <span>05</span>
+              <h3>匯入品項主檔</h3>
+            </div>
+            <form id="masterImportForm" class="master-import-form">
+              <label class="master-file-field">
+                主檔檔案
+                <input id="masterFileInput" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+              </label>
+              <label>
+                預設分類
+                <select id="masterCategoryInput">
+                  <option value="OMBRA">OMBRA</option>
+                  <option value="吹氣盒">吹氣盒</option>
+                  <option value="未分類">未分類</option>
+                </select>
+              </label>
+              <label>
+                匯入模式
+                <select id="masterModeInput">
+                  <option value="preview" selected>預覽檢查</option>
+                  <option value="import">正式匯入</option>
+                </select>
+              </label>
+              <button id="masterImportBtn" class="primary-btn" type="submit">送出</button>
+            </form>
+            <p id="masterImportMessage" class="result-note">支援 CSV 與 Excel 主檔。欄位需包含品號、品名、規格，可用分類或類別名稱欄位指定分類。</p>
+          </section>
+
+          <section id="masterImportResultPanel" class="result-panel hidden">
+            <div class="section-title split-title">
+              <div>
+                <span>06</span>
+                <h3>匯入結果</h3>
+              </div>
+              <button id="masterImportResetBtn" class="ghost-btn" type="button">清除結果</button>
+            </div>
+            <div id="masterImportSummary" class="import-summary-grid"></div>
+            <div class="table-wrap">
+              <table class="admin-table import-table">
+                <thead>
+                  <tr>
+                    <th>品號</th>
+                    <th>分類</th>
+                    <th>動作</th>
+                    <th>狀態</th>
+                    <th>訊息</th>
+                  </tr>
+                </thead>
+                <tbody id="masterImportBody">
+                  <tr class="empty-row">
+                    <td colspan="5">尚未執行匯入</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>

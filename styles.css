@@ -748,6 +748,46 @@ th {
   height: 18px;
 }
 
+.master-import-form {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 0.35fr) minmax(150px, 0.35fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.master-import-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.master-import-form input,
+.master-import-form select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.master-file-field input {
+  padding: 7px 9px;
+}
+
+.import-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.import-table {
+  min-width: 760px;
+}
+
 .mobile-link-badge {
   text-decoration: none;
 }
@@ -799,6 +839,7 @@ th {
   .scan-grid,
   .settings-panel,
   .admin-login-form,
+  .master-import-form,
   .admin-summary-grid {
     grid-template-columns: 1fr;
   }
@@ -853,6 +894,10 @@ th {
   .admin-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .import-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .upload-panel,

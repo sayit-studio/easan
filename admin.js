@@ -4,11 +4,13 @@ const adminState = {
   data: null,
   activeTab: "stats",
   permissions: [],
+  masterImportResult: null,
 };
 
 const ADMIN_CONFIG = {
   statsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-stats",
   permissionsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-permissions",
+  masterImportWebhook: "https://sayitstudio.zeabur.app/webhook/easan-master-import",
 };
 
 const adminEls = {
@@ -21,11 +23,23 @@ const adminEls = {
   refreshBtn: document.querySelector("#refreshBtn"),
   statsTabBtn: document.querySelector("#statsTabBtn"),
   permissionsTabBtn: document.querySelector("#permissionsTabBtn"),
+  masterImportTabBtn: document.querySelector("#masterImportTabBtn"),
   statsView: document.querySelector("#statsView"),
   permissionsView: document.querySelector("#permissionsView"),
+  masterImportView: document.querySelector("#masterImportView"),
   permissionsRefreshBtn: document.querySelector("#permissionsRefreshBtn"),
   permissionMessage: document.querySelector("#permissionMessage"),
   permissionList: document.querySelector("#permissionList"),
+  masterImportForm: document.querySelector("#masterImportForm"),
+  masterFileInput: document.querySelector("#masterFileInput"),
+  masterCategoryInput: document.querySelector("#masterCategoryInput"),
+  masterModeInput: document.querySelector("#masterModeInput"),
+  masterImportBtn: document.querySelector("#masterImportBtn"),
+  masterImportMessage: document.querySelector("#masterImportMessage"),
+  masterImportResultPanel: document.querySelector("#masterImportResultPanel"),
+  masterImportSummary: document.querySelector("#masterImportSummary"),
+  masterImportBody: document.querySelector("#masterImportBody"),
+  masterImportResetBtn: document.querySelector("#masterImportResetBtn"),
   mobileMenuBtn: document.querySelector("#mobileMenuBtn"),
   mobileMenu: document.querySelector("#mobileMenu"),
   accuracyRate: document.querySelector("#accuracyRate"),
@@ -73,8 +87,10 @@ function setActiveTab(tab) {
   adminState.activeTab = tab;
   adminEls.statsTabBtn.classList.toggle("active", tab === "stats");
   adminEls.permissionsTabBtn.classList.toggle("active", tab === "permissions");
+  adminEls.masterImportTabBtn.classList.toggle("active", tab === "masterImport");
   adminEls.statsView.classList.toggle("hidden", tab !== "stats");
   adminEls.permissionsView.classList.toggle("hidden", tab !== "permissions");
+  adminEls.masterImportView.classList.toggle("hidden", tab !== "masterImport");
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -137,6 +153,32 @@ async function fetchPermissions(action = "list", data = {}) {
   const payload = await readJsonResponse(response, "人員權限處理失敗");
   if (payload.ok === false) {
     throw new Error(payload.message || "人員權限處理失敗");
+  }
+  return payload;
+}
+
+async function submitMasterImport(mode, file, category) {
+  const form = new FormData();
+  form.append("password", adminState.password);
+  form.append("mode", mode);
+  form.append("category", category);
+  form.append("file", file);
+
+  const response = await fetch(ADMIN_CONFIG.masterImportWebhook, {
+    method: "POST",
+    body: form,
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("管理密碼錯誤或沒有權限");
+  }
+  if (!response.ok) {
+    throw new Error(`主檔匯入失敗：${response.status}`);
+  }
+
+  const payload = await readJsonResponse(response, "主檔匯入失敗");
+  if (payload.ok === false) {
+    throw new Error(payload.message || "主檔匯入失敗");
   }
   return payload;
 }
@@ -263,6 +305,63 @@ function renderPermissions(operators) {
   }).join("");
 }
 
+function renderImportMetric(label, value, tone = "") {
+  return `
+    <div class="metric ${tone}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function normalizeImportRows(payload) {
+  return payload.rows || payload.items || payload.results || payload.errors || [];
+}
+
+function renderMasterImportResult(payload) {
+  adminState.masterImportResult = payload;
+  const summary = payload.summary || payload;
+  const total = toNumber(summary.total ?? summary.total_rows ?? summary.totalRows);
+  const valid = toNumber(summary.valid ?? summary.valid_rows ?? summary.validRows);
+  const created = toNumber(summary.created);
+  const updated = toNumber(summary.updated);
+  const skipped = toNumber(summary.skipped);
+  const failed = toNumber(summary.failed ?? summary.errors);
+  const mode = payload.mode || adminEls.masterModeInput.value;
+
+  adminEls.masterImportResultPanel.classList.remove("hidden");
+  adminEls.masterImportSummary.innerHTML = [
+    renderImportMetric("模式", mode === "import" ? "正式匯入" : "預覽檢查"),
+    renderImportMetric("總筆數", total),
+    renderImportMetric("有效筆數", valid),
+    renderImportMetric("新增", created, "ok"),
+    renderImportMetric("更新", updated),
+    renderImportMetric("略過", skipped),
+    renderImportMetric("失敗", failed, failed ? "danger" : ""),
+  ].join("");
+
+  const rows = normalizeImportRows(payload);
+  if (!rows.length) {
+    adminEls.masterImportBody.innerHTML = '<tr class="empty-row"><td colspan="5">沒有明細結果</td></tr>';
+    return;
+  }
+
+  adminEls.masterImportBody.innerHTML = rows.slice(0, 100).map((row) => {
+    const status = row.status || row.result || (row.ok === false ? "失敗" : "OK");
+    const action = row.action || row.operation || "";
+    const message = row.message || row.note || row.error || "";
+    return `
+      <tr>
+        <td>${escapeHtml(row.partNo || row.part_no || row["品號"] || "")}</td>
+        <td>${escapeHtml(row.category || row["分類"] || row["類別名稱"] || "")}</td>
+        <td>${escapeHtml(action)}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${escapeHtml(message)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 async function loadPermissions() {
   adminEls.permissionMessage.textContent = "讀取人員權限中...";
   const payload = await fetchPermissions("list");
@@ -319,6 +418,42 @@ adminEls.permissionsRefreshBtn.addEventListener("click", () => {
   loadPermissions().catch((error) => {
     adminEls.permissionMessage.textContent = error.message;
   });
+});
+
+adminEls.masterImportForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const file = adminEls.masterFileInput.files?.[0];
+  if (!file) {
+    adminEls.masterImportMessage.textContent = "請先選擇主檔檔案";
+    return;
+  }
+
+  const mode = adminEls.masterModeInput.value;
+  const category = adminEls.masterCategoryInput.value;
+  adminEls.masterImportBtn.disabled = true;
+  adminEls.masterImportBtn.textContent = mode === "import" ? "匯入中" : "檢查中";
+  adminEls.masterImportMessage.textContent = mode === "import" ? "正在匯入主檔..." : "正在預覽檢查主檔...";
+
+  submitMasterImport(mode, file, category)
+    .then((payload) => {
+      renderMasterImportResult(payload);
+      adminEls.masterImportMessage.textContent = mode === "import" ? "主檔匯入完成" : "主檔預覽完成";
+    })
+    .catch((error) => {
+      adminEls.masterImportMessage.textContent = error.message;
+    })
+    .finally(() => {
+      adminEls.masterImportBtn.disabled = false;
+      adminEls.masterImportBtn.textContent = "送出";
+    });
+});
+
+adminEls.masterImportResetBtn.addEventListener("click", () => {
+  adminState.masterImportResult = null;
+  adminEls.masterImportResultPanel.classList.add("hidden");
+  adminEls.masterImportSummary.innerHTML = "";
+  adminEls.masterImportBody.innerHTML = '<tr class="empty-row"><td colspan="5">尚未執行匯入</td></tr>';
+  adminEls.masterImportMessage.textContent = "支援 CSV 與 Excel 主檔。欄位需包含品號、品名、規格，可用分類或類別名稱欄位指定分類。";
 });
 
 adminEls.permissionList.addEventListener("click", (event) => {
