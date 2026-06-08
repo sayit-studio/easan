@@ -414,6 +414,10 @@ adminEls.permissionsTabBtn.addEventListener("click", () => {
   }
 });
 
+adminEls.masterImportTabBtn.addEventListener("click", () => {
+  setActiveTab("masterImport");
+});
+
 adminEls.permissionsRefreshBtn.addEventListener("click", () => {
   loadPermissions().catch((error) => {
     adminEls.permissionMessage.textContent = error.message;
