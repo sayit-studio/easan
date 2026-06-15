@@ -6,6 +6,8 @@ const adminState = {
   permissions: [],
   masterImportResult: null,
   self: { userId: "", name: "管理員", features: [], role: "", identified: false },
+  statsLoaded: false,
+  permsLoaded: false,
 };
 
 const ADMIN_CONFIG = {
@@ -64,6 +66,7 @@ const adminEls = {
   todayBatches: document.querySelector("#todayBatches"),
   operatorList: document.querySelector("#operatorList"),
   recentBody: document.querySelector("#recentBody"),
+  statsMessage: document.querySelector("#statsMessage"),
   ocrCompleteRate: document.querySelector("#ocrCompleteRate"),
   correctionRate: document.querySelector("#correctionRate"),
   avgProcessing: document.querySelector("#avgProcessing"),
@@ -617,52 +620,81 @@ async function initAdminIdentity() {
 }
 
 async function loadStats() {
-  adminEls.loginMessage.textContent = "讀取統計資料中...";
+  adminEls.statsMessage.textContent = "讀取統計資料中...";
   const payload = await fetchStats();
   adminState.data = payload;
+  adminState.statsLoaded = true;
   renderDashboard(payload);
+  adminEls.statsMessage.textContent = `已更新（範圍：${rangeLabel(adminState.range)}）`;
+}
+
+function loadStatsSafe() {
+  loadStats().catch((error) => {
+    adminState.statsLoaded = false;
+    adminEls.statsMessage.textContent = error.message;
+    if (/密碼|權限|401|403/.test(error.message)) backToLogin(error.message);
+  });
+}
+
+function loadPermissionsSafe() {
+  if (!canManagePermissions()) return;
+  adminState.permsLoaded = true;
+  loadPermissions().catch((error) => {
+    adminState.permsLoaded = false;
+    adminEls.permissionMessage.textContent = error.message;
+  });
+}
+
+function rangeLabel(range) {
+  if (range === "7") return "近 7 天";
+  if (range === "all") return "全部";
+  return "近 30 天";
+}
+
+function backToLogin(message) {
+  adminEls.loginPanel.classList.remove("hidden");
+  adminEls.dashboardPanel.classList.add("hidden");
+  adminEls.refreshBtn.disabled = true;
+  adminEls.loginMessage.textContent = message || "";
+}
+
+function enterDashboard() {
+  adminState.password = adminEls.adminPasswordInput.value;
+  adminState.range = adminEls.rangeInput.value;
+  adminState.statsLoaded = false;
+  adminState.permsLoaded = false;
+  adminState.permissions = [];
   adminEls.loginPanel.classList.add("hidden");
   adminEls.dashboardPanel.classList.remove("hidden");
   adminEls.refreshBtn.disabled = false;
   adminEls.loginMessage.textContent = "";
+  adminEls.statsMessage.textContent = "尚未載入，點上方「載入資料」或切換分頁時自動載入。";
   applyPermissionGate();
-  if (canManagePermissions()) {
-    loadPermissions().catch((error) => {
-      adminEls.permissionMessage.textContent = error.message;
-    });
-  }
+  setActiveTab("stats");
 }
 
 adminEls.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  adminState.password = adminEls.adminPasswordInput.value;
-  adminState.range = adminEls.rangeInput.value;
-  loadStats().catch((error) => {
-    adminEls.loginMessage.textContent = error.message;
-  });
+  enterDashboard();
 });
 
 adminEls.refreshBtn.addEventListener("click", () => {
   adminState.range = adminEls.rangeInput.value;
-  loadStats().catch((error) => {
-    adminEls.loginPanel.classList.remove("hidden");
-    adminEls.dashboardPanel.classList.add("hidden");
-    adminEls.refreshBtn.disabled = true;
-    adminEls.loginMessage.textContent = error.message;
-  });
+  if (adminState.activeTab === "permissions") {
+    loadPermissionsSafe();
+  } else {
+    loadStatsSafe();
+  }
 });
 
 adminEls.statsTabBtn.addEventListener("click", () => {
   setActiveTab("stats");
+  if (!adminState.statsLoaded) loadStatsSafe();
 });
 
 adminEls.permissionsTabBtn.addEventListener("click", () => {
   setActiveTab("permissions");
-  if (!adminState.permissions.length) {
-    loadPermissions().catch((error) => {
-      adminEls.permissionMessage.textContent = error.message;
-    });
-  }
+  if (!adminState.permsLoaded) loadPermissionsSafe();
 });
 
 adminEls.masterImportTabBtn.addEventListener("click", () => {
