@@ -8,12 +8,15 @@ const adminState = {
   self: { userId: "", name: "管理員", features: [], role: "", identified: false },
   statsLoaded: false,
   permsLoaded: false,
+  masterCoverage: null,
+  selectedOperator: "",
 };
 
 const ADMIN_CONFIG = {
   statsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-stats",
   permissionsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-permissions",
   masterImportWebhook: "https://sayitstudio.zeabur.app/webhook/easan-master-import",
+  masterQueryWebhook: "https://sayitstudio.zeabur.app/webhook/easan-master-query",
   operatorPermissionWebhook: "https://sayitstudio.zeabur.app/webhook/easan-operator-permission",
   liffId: "2010295228-FaJJlXg9",
   liffEndpoint: "https://easan.pages.dev/admin.html",
@@ -37,12 +40,24 @@ const adminEls = {
   rangeInput: document.querySelector("#rangeInput"),
   loginMessage: document.querySelector("#loginMessage"),
   refreshBtn: document.querySelector("#refreshBtn"),
-  statsTabBtn: document.querySelector("#statsTabBtn"),
+  tabStats: document.querySelector("#tabStats"),
+  dashTabBtn: document.querySelector("#dashTabBtn"),
+  rawTabBtn: document.querySelector("#rawTabBtn"),
+  masterTabBtn: document.querySelector("#masterTabBtn"),
   permissionsTabBtn: document.querySelector("#permissionsTabBtn"),
   masterImportTabBtn: document.querySelector("#masterImportTabBtn"),
-  statsView: document.querySelector("#statsView"),
+  dashboardView: document.querySelector("#dashboardView"),
+  rawView: document.querySelector("#rawView"),
+  masterView: document.querySelector("#masterView"),
   permissionsView: document.querySelector("#permissionsView"),
   masterImportView: document.querySelector("#masterImportView"),
+  operatorSelect: document.querySelector("#operatorSelect"),
+  operatorDetail: document.querySelector("#operatorDetail"),
+  masterQueryForm: document.querySelector("#masterQueryForm"),
+  masterFilterCategory: document.querySelector("#masterFilterCategory"),
+  masterQueryMessage: document.querySelector("#masterQueryMessage"),
+  masterItemsBody: document.querySelector("#masterItemsBody"),
+  masterCoverage: document.querySelector("#masterCoverage"),
   permissionsRefreshBtn: document.querySelector("#permissionsRefreshBtn"),
   permissionMessage: document.querySelector("#permissionMessage"),
   permissionList: document.querySelector("#permissionList"),
@@ -58,22 +73,11 @@ const adminEls = {
   masterImportResetBtn: document.querySelector("#masterImportResetBtn"),
   mobileMenuBtn: document.querySelector("#mobileMenuBtn"),
   mobileMenu: document.querySelector("#mobileMenu"),
-  accuracyRate: document.querySelector("#accuracyRate"),
-  totalItems: document.querySelector("#totalItems"),
-  passedItems: document.querySelector("#passedItems"),
-  abnormalItems: document.querySelector("#abnormalItems"),
-  totalBatches: document.querySelector("#totalBatches"),
-  todayBatches: document.querySelector("#todayBatches"),
   operatorList: document.querySelector("#operatorList"),
   recentBody: document.querySelector("#recentBody"),
   statsMessage: document.querySelector("#statsMessage"),
-  ocrCompleteRate: document.querySelector("#ocrCompleteRate"),
-  correctionRate: document.querySelector("#correctionRate"),
-  avgProcessing: document.querySelector("#avgProcessing"),
-  failedBatches: document.querySelector("#failedBatches"),
   trendChart: document.querySelector("#trendChart"),
   errorTypeChart: document.querySelector("#errorTypeChart"),
-  ocrStatusChart: document.querySelector("#ocrStatusChart"),
   problemParts: document.querySelector("#problemParts"),
   notifyStatus: document.querySelector("#notifyStatus"),
 };
@@ -109,14 +113,75 @@ function featureList(value) {
   return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
 }
 
+const TABS = ["dashboard", "raw", "master", "masterImport", "permissions"];
+const TAB_BTN = {
+  dashboard: "dashTabBtn",
+  raw: "rawTabBtn",
+  master: "masterTabBtn",
+  masterImport: "masterImportTabBtn",
+  permissions: "permissionsTabBtn",
+};
+const TAB_VIEW = {
+  dashboard: "dashboardView",
+  raw: "rawView",
+  master: "masterView",
+  masterImport: "masterImportView",
+  permissions: "permissionsView",
+};
+
 function setActiveTab(tab) {
   adminState.activeTab = tab;
-  adminEls.statsTabBtn.classList.toggle("active", tab === "stats");
-  adminEls.permissionsTabBtn.classList.toggle("active", tab === "permissions");
-  adminEls.masterImportTabBtn.classList.toggle("active", tab === "masterImport");
-  adminEls.statsView.classList.toggle("hidden", tab !== "stats");
-  adminEls.permissionsView.classList.toggle("hidden", tab !== "permissions");
-  adminEls.masterImportView.classList.toggle("hidden", tab !== "masterImport");
+  for (const t of TABS) {
+    adminEls[TAB_BTN[t]].classList.toggle("active", t === tab);
+    adminEls[TAB_VIEW[t]].classList.toggle("hidden", t !== tab);
+  }
+  renderTabStats(tab);
+}
+
+function statChip(label, value, tone) {
+  return `<div class="stat-chip ${tone || ""}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+}
+
+function renderTabStats(tab) {
+  const el = adminEls.tabStats;
+  if (tab === "dashboard" || tab === "raw") {
+    const d = adminState.data ? normalizeStats(adminState.data) : null;
+    if (!d) { el.innerHTML = `<div class="stat-chip"><span>狀態</span><strong>尚未載入</strong></div>`; return; }
+    const s = d.summary;
+    el.innerHTML = [
+      statChip("今日批次", String(s.todayBatches)),
+      statChip("掃描批次", String(s.totalBatches)),
+      statChip("總明細數", String(s.totalItems)),
+      statChip("整體正確率", formatPercent(s.accuracyRate), "ok"),
+      statChip("異常筆數", String(s.abnormalItems), "danger"),
+      statChip("失敗批次", String(s.failedBatches), s.failedBatches ? "danger" : ""),
+      statChip("OCR完整率", formatPercent(s.ocrCompleteRate)),
+      statChip("平均秒數", `${s.avgProcessingSeconds}s`),
+    ].join("");
+  } else if (tab === "master") {
+    const c = adminState.masterCoverage;
+    if (!c) { el.innerHTML = `<div class="stat-chip"><span>品項</span><strong>查詢後顯示</strong></div>`; return; }
+    el.innerHTML = [
+      statChip("總品項", String(c.total || 0)),
+      statChip("OMBRA", String(c["OMBRA"] || 0)),
+      statChip("吹氣盒", String(c["吹氣盒"] || 0)),
+      statChip("未分類", String(c["未分類"] || 0), (c["未分類"] ? "danger" : "")),
+    ].join("");
+  } else if (tab === "permissions") {
+    const ops = adminState.permissions || [];
+    if (!ops.length) { el.innerHTML = `<div class="stat-chip"><span>人員</span><strong>尚未載入</strong></div>`; return; }
+    const count = (pred) => ops.filter(pred).length;
+    el.innerHTML = [
+      statChip("總人數", String(ops.length)),
+      statChip("管理員", String(count((o) => o.role === "管理員"))),
+      statChip("操作員", String(count((o) => o.role === "操作員" || !o.role))),
+      statChip("待審核", String(count((o) => o.status === "待審核")), count((o) => o.status === "待審核") ? "danger" : ""),
+      statChip("已開通", String(count((o) => o.status === "已開通")), "ok"),
+      statChip("停用", String(count((o) => o.status === "停用"))),
+    ].join("");
+  } else {
+    el.innerHTML = "";
+  }
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -346,24 +411,12 @@ function buildNotify(notify) {
 
 function renderDashboard(payload) {
   const data = normalizeStats(payload);
-  const summary = data.summary;
-
-  adminEls.accuracyRate.textContent = formatPercent(summary.accuracyRate);
-  adminEls.totalItems.textContent = String(summary.totalItems);
-  adminEls.passedItems.textContent = String(summary.passedItems);
-  adminEls.abnormalItems.textContent = String(summary.abnormalItems);
-  adminEls.totalBatches.textContent = String(summary.totalBatches);
-  adminEls.todayBatches.textContent = String(summary.todayBatches);
-  adminEls.ocrCompleteRate.textContent = formatPercent(summary.ocrCompleteRate);
-  adminEls.correctionRate.textContent = formatPercent(summary.correctionRate);
-  adminEls.avgProcessing.textContent = `${summary.avgProcessingSeconds}s`;
-  adminEls.failedBatches.textContent = String(summary.failedBatches);
 
   adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
   adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
-  adminEls.ocrStatusChart.innerHTML = buildBarList(data.ocrStatus, "");
   adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
   adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
+  renderMasterCoverage();
 
   adminState.detailsByBatch = new Map();
   for (const row of data.details) {
@@ -373,57 +426,138 @@ function renderDashboard(payload) {
     adminState.detailsByBatch.get(key).push(row);
   }
 
-  if (!data.operators.length) {
+  renderOperators(data);
+  renderRecent(data);
+  renderTabStats(adminState.activeTab);
+}
+
+function renderMasterCoverage() {
+  const c = adminState.masterCoverage;
+  if (!c) {
+    adminEls.masterCoverage.innerHTML = '<p class="result-note">載入中…</p>';
+    return;
+  }
+  const items = [
+    { name: "總品項", count: c.total || 0, tone: "" },
+    { name: "OMBRA", count: c["OMBRA"] || 0, tone: "" },
+    { name: "吹氣盒", count: c["吹氣盒"] || 0, tone: "" },
+    { name: "未分類", count: c["未分類"] || 0, tone: c["未分類"] ? "danger" : "" },
+  ];
+  adminEls.masterCoverage.innerHTML = items.map((it) =>
+    `<div class="metric ${it.tone}"><span>${escapeHtml(it.name)}</span><strong>${toNumber(it.count)}</strong></div>`
+  ).join("");
+}
+
+function operatorKey(operator) {
+  return operator.userId || operator.name || "";
+}
+
+function renderOperators(data) {
+  const ops = data.operators || [];
+  const current = adminState.selectedOperator;
+  adminEls.operatorSelect.innerHTML = '<option value="">全部人員</option>' +
+    ops.map((o) => `<option value="${escapeHtml(operatorKey(o))}" ${operatorKey(o) === current ? "selected" : ""}>${escapeHtml(o.name || "未命名")}</option>`).join("");
+
+  if (!ops.length) {
     adminEls.operatorList.innerHTML = '<p class="result-note">尚無人員統計資料</p>';
-  } else {
-    adminEls.operatorList.innerHTML = data.operators.map((operator) => {
-      const total = toNumber(operator.total ?? operator.total_items);
-      const passed = toNumber(operator.passed ?? operator.passed_items);
-      const abnormal = toNumber(operator.abnormal ?? operator.abnormal_items);
-      const accuracy = operator.accuracy ?? operator.accuracy_rate ?? (total ? passed / total : 0);
-      return `
-        <article class="operator-card">
-          <div>
-            <strong>${escapeHtml(operator.name || operator.operator || "未命名")}</strong>
-            <span>${escapeHtml(operator.userId || operator.user_id || "")}</span>
-          </div>
-          <div class="operator-stats">
-            <span>總數 ${total}</span>
-            <span>通過 ${passed}</span>
-            <span>異常 ${abnormal}</span>
-            <strong>${formatPercent(accuracy)}</strong>
-          </div>
-        </article>
-      `;
-    }).join("");
+    adminEls.operatorDetail.innerHTML = "";
+    return;
   }
 
-  if (!data.recent.length) {
-    adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="9">尚無近期批次</td></tr>';
-  } else {
-    adminEls.recentBody.innerHTML = data.recent.map((batch) => {
-      const total = toNumber(batch.total ?? batch.total_items);
-      const passed = toNumber(batch.passed ?? batch.passed_items);
-      const abnormal = toNumber(batch.abnormal ?? batch.abnormal_items);
-      const accuracy = batch.accuracy ?? batch.accuracy_rate ?? (total ? passed / total : 0);
-      const batchId = batch.batchId || batch.batch_id || "";
-      const notify = batch.notifyStatus || batch.notify_status || "";
-      const time = formatTime(batch.time || batch.created_at || "");
-      return `
-        <tr class="batch-row" data-batch-id="${escapeHtml(batchId)}" tabindex="0">
-          <td>${escapeHtml(time)}</td>
-          <td><span class="batch-toggle">▸</span>${escapeHtml(batchId)}</td>
-          <td>${escapeHtml(batch.operator || batch.operator_name || "")}</td>
-          <td>${escapeHtml(batch.orderNo || batch.order_no || "")}</td>
-          <td>${total}</td>
-          <td>${passed}</td>
-          <td>${abnormal}</td>
-          <td>${formatPercent(accuracy)}</td>
-          <td>${escapeHtml(notify) || "—"}</td>
-        </tr>
-      `;
-    }).join("");
+  adminEls.operatorList.innerHTML = ops.map((operator) => {
+    const total = toNumber(operator.total);
+    const passed = toNumber(operator.passed);
+    const abnormal = toNumber(operator.abnormal);
+    const accuracy = operator.accuracy ?? (total ? passed / total : 0);
+    const selected = operatorKey(operator) === current ? " selected" : "";
+    return `
+      <article class="operator-card${selected}" data-op="${escapeHtml(operatorKey(operator))}" tabindex="0">
+        <div>
+          <strong>${escapeHtml(operator.name || "未命名")}</strong>
+          <span>${escapeHtml(operator.userId || "")}</span>
+        </div>
+        <div class="operator-stats">
+          <span>總數 ${total}</span>
+          <span>通過 ${passed}</span>
+          <span>異常 ${abnormal}</span>
+          <strong>${formatPercent(accuracy)}</strong>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  renderOperatorDetail(data);
+}
+
+function renderOperatorDetail(data) {
+  const key = adminState.selectedOperator;
+  if (!key) {
+    adminEls.operatorDetail.innerHTML = "";
+    return;
   }
+  const op = (data.operators || []).find((o) => operatorKey(o) === key);
+  if (!op) {
+    adminEls.operatorDetail.innerHTML = "";
+    return;
+  }
+  const batches = (data.recent || []).filter((b) => (b.operator || "") === op.name);
+  adminEls.operatorDetail.innerHTML = `
+    <div class="operator-detail-card">
+      <strong>${escapeHtml(op.name)} 的成效</strong>
+      <div class="operator-stats">
+        <span>總筆數 ${toNumber(op.total)}</span>
+        <span>通過 ${toNumber(op.passed)}</span>
+        <span>異常 ${toNumber(op.abnormal)}</span>
+        <span>正確率 ${formatPercent(op.accuracy ?? 0)}</span>
+        <span>人工修正率 ${formatPercent(op.correctionRate ?? 0)}</span>
+        <span>近期批次 ${batches.length}</span>
+      </div>
+      <p class="result-note">下方「近期批次」已篩選為此人，可點開看明細。</p>
+    </div>
+  `;
+}
+
+function renderRecent(data) {
+  let recent = data.recent || [];
+  const key = adminState.selectedOperator;
+  if (key) {
+    const op = (data.operators || []).find((o) => operatorKey(o) === key);
+    const name = op ? op.name : key;
+    recent = recent.filter((b) => (b.operator || "") === name);
+  }
+  if (!recent.length) {
+    adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="9">尚無近期批次</td></tr>';
+    return;
+  }
+  adminEls.recentBody.innerHTML = recent.map((batch) => {
+    const total = toNumber(batch.total);
+    const passed = toNumber(batch.passed);
+    const abnormal = toNumber(batch.abnormal);
+    const accuracy = batch.accuracy ?? (total ? passed / total : 0);
+    const batchId = batch.batchId || "";
+    const notify = batch.notifyStatus || "";
+    const time = formatTime(batch.time || "");
+    return `
+      <tr class="batch-row" data-batch-id="${escapeHtml(batchId)}" tabindex="0">
+        <td>${escapeHtml(time)}</td>
+        <td><span class="batch-toggle">▸</span>${escapeHtml(batchId)}</td>
+        <td>${escapeHtml(batch.operator || "")}</td>
+        <td>${escapeHtml(batch.orderNo || "")}</td>
+        <td>${total}</td>
+        <td>${passed}</td>
+        <td>${abnormal}</td>
+        <td>${formatPercent(accuracy)}</td>
+        <td>${escapeHtml(notify) || "—"}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function reRenderOperatorViews() {
+  if (!adminState.data) return;
+  const data = normalizeStats(adminState.data);
+  renderOperators(data);
+  renderRecent(data);
 }
 
 function formatTime(value) {
@@ -587,7 +721,7 @@ function applyPermissionGate() {
   const allowed = canManagePermissions();
   adminEls.permissionsTabBtn.classList.toggle("hidden", !allowed);
   if (!allowed && adminState.activeTab === "permissions") {
-    setActiveTab("stats");
+    setActiveTab("dashboard");
   }
 }
 
@@ -645,6 +779,71 @@ function loadPermissionsSafe() {
   });
 }
 
+async function masterQueryRequest(payload) {
+  const response = await fetch(ADMIN_CONFIG.masterQueryWebhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: adminState.password, ...payload }),
+  });
+  if (response.status === 401 || response.status === 403) throw new Error("管理密碼錯誤或沒有權限");
+  if (!response.ok) throw new Error(`品項查詢失敗：${response.status}`);
+  const data = await readJsonResponse(response, "品項查詢失敗");
+  if (data.ok === false) throw new Error(data.message || "品項查詢失敗");
+  return data;
+}
+
+async function loadMasterCoverage() {
+  const payload = await masterQueryRequest({ action: "query", category: "" });
+  adminState.masterCoverage = payload.categoryCounts || null;
+  renderMasterCoverage();
+  renderTabStats(adminState.activeTab);
+}
+
+function loadMasterCoverageSafe() {
+  loadMasterCoverage().catch(() => {});
+}
+
+const MASTER_CATEGORIES = ["OMBRA", "吹氣盒", "未分類"];
+const MASTER_STATUSES = ["啟用", "停用"];
+
+function renderMasterItems(payload, category) {
+  const items = payload.items || [];
+  adminState.masterCoverage = payload.categoryCounts || adminState.masterCoverage;
+  renderTabStats("master");
+  adminEls.masterQueryMessage.textContent = `共 ${toNumber(payload.filteredCount)} 筆${category ? `（${category}）` : "（全部）"}${payload.filteredCount > items.length ? `，顯示前 ${items.length} 筆` : ""}`;
+  if (!items.length) {
+    adminEls.masterItemsBody.innerHTML = '<tr class="empty-row"><td colspan="6">查無品項</td></tr>';
+    return;
+  }
+  adminEls.masterItemsBody.innerHTML = items.map((it) => {
+    const cat = it.category || "未分類";
+    const status = it.status || "啟用";
+    const catSel = MASTER_CATEGORIES.map((c) => `<option value="${c}" ${c === cat ? "selected" : ""}>${c}</option>`).join("");
+    const stSel = MASTER_STATUSES.map((s) => `<option value="${s}" ${s === status ? "selected" : ""}>${s}</option>`).join("");
+    return `
+      <tr data-page-id="${escapeHtml(it.pageId)}">
+        <td>${escapeHtml(it.partNo)}</td>
+        <td>${escapeHtml(it.name || "")}</td>
+        <td><span class="cell-text">${escapeHtml(it.spec || "")}</span></td>
+        <td><select class="master-cat">${catSel}</select></td>
+        <td><select class="master-status">${stSel}</select></td>
+        <td><button class="ghost-btn master-save-btn" type="button">儲存</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function queryMaster() {
+  const category = adminEls.masterFilterCategory.value;
+  adminEls.masterQueryMessage.textContent = "查詢中…";
+  masterQueryRequest({ action: "query", category })
+    .then((payload) => renderMasterItems(payload, category))
+    .catch((error) => {
+      adminEls.masterQueryMessage.textContent = error.message;
+      if (/密碼|權限|403/.test(error.message)) backToLogin(error.message);
+    });
+}
+
 function rangeLabel(range) {
   if (range === "7") return "近 7 天";
   if (range === "all") return "全部";
@@ -668,9 +867,17 @@ function enterDashboard() {
   adminEls.dashboardPanel.classList.remove("hidden");
   adminEls.refreshBtn.disabled = false;
   adminEls.loginMessage.textContent = "";
+  adminState.masterCoverage = null;
+  adminState.selectedOperator = "";
   adminEls.statsMessage.textContent = "尚未載入，點上方「載入資料」或切換分頁時自動載入。";
   applyPermissionGate();
-  setActiveTab("stats");
+  setActiveTab("dashboard");
+}
+
+function openDashboard() {
+  setActiveTab("dashboard");
+  if (!adminState.statsLoaded) loadStatsSafe();
+  if (!adminState.masterCoverage) loadMasterCoverageSafe();
 }
 
 adminEls.loginForm.addEventListener("submit", (event) => {
@@ -680,16 +887,27 @@ adminEls.loginForm.addEventListener("submit", (event) => {
 
 adminEls.refreshBtn.addEventListener("click", () => {
   adminState.range = adminEls.rangeInput.value;
-  if (adminState.activeTab === "permissions") {
+  const tab = adminState.activeTab;
+  if (tab === "permissions") {
     loadPermissionsSafe();
+  } else if (tab === "master") {
+    queryMaster();
   } else {
+    adminState.statsLoaded = false;
     loadStatsSafe();
+    loadMasterCoverageSafe();
   }
 });
 
-adminEls.statsTabBtn.addEventListener("click", () => {
-  setActiveTab("stats");
+adminEls.dashTabBtn.addEventListener("click", openDashboard);
+
+adminEls.rawTabBtn.addEventListener("click", () => {
+  setActiveTab("raw");
   if (!adminState.statsLoaded) loadStatsSafe();
+});
+
+adminEls.masterTabBtn.addEventListener("click", () => {
+  setActiveTab("master");
 });
 
 adminEls.permissionsTabBtn.addEventListener("click", () => {
@@ -699,6 +917,47 @@ adminEls.permissionsTabBtn.addEventListener("click", () => {
 
 adminEls.masterImportTabBtn.addEventListener("click", () => {
   setActiveTab("masterImport");
+});
+
+adminEls.operatorSelect.addEventListener("change", () => {
+  adminState.selectedOperator = adminEls.operatorSelect.value;
+  reRenderOperatorViews();
+});
+
+adminEls.operatorList.addEventListener("click", (event) => {
+  const card = event.target.closest(".operator-card");
+  if (!card) return;
+  const key = card.dataset.op || "";
+  adminState.selectedOperator = adminState.selectedOperator === key ? "" : key;
+  reRenderOperatorViews();
+});
+
+adminEls.masterQueryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  queryMaster();
+});
+
+adminEls.masterItemsBody.addEventListener("click", (event) => {
+  const button = event.target.closest(".master-save-btn");
+  if (!button) return;
+  const row = button.closest("tr");
+  const pageId = row.dataset.pageId;
+  const newCategory = row.querySelector(".master-cat").value;
+  const newStatus = row.querySelector(".master-status").value;
+  button.disabled = true;
+  button.textContent = "儲存中";
+  masterQueryRequest({ action: "update", pageId, newCategory, newStatus })
+    .then((payload) => {
+      renderMasterItems(payload, adminEls.masterFilterCategory.value);
+      adminEls.masterQueryMessage.textContent = "已更新分類/狀態";
+    })
+    .catch((error) => {
+      adminEls.masterQueryMessage.textContent = error.message;
+    })
+    .finally(() => {
+      button.disabled = false;
+      button.textContent = "儲存";
+    });
 });
 
 adminEls.permissionsRefreshBtn.addEventListener("click", () => {

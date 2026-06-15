@@ -14,6 +14,7 @@
 - `n8n_easan_admin_permissions.json`：n8n 管理後台人員權限 workflow，供管理頁切換人員狀態與 OCR 使用權限。
 - `n8n_easan_admin_stats.json`：n8n 管理後台成效統計 workflow，供管理頁讀取正確率、批次與人員成效。
 - `n8n_easan_master_import.json`：n8n 品項主檔匯入 workflow，供管理頁「主檔匯入」分頁上傳 CSV/Excel，預覽或正式 upsert 寫入 OCR品項主檔。
+- `n8n_easan_master_query.json`：n8n 品項主檔查詢 workflow，供管理頁「品項主檔」分頁依分類篩選查詢，並可更新單筆品項的分類/狀態。
 
 ## LIFF Endpoint
 

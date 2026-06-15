@@ -1,0 +1,321 @@
+{
+  "name": "Easan 品項主檔查詢",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "easan-master-query",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "mq-0000000000000001",
+      "name": "品項查詢 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "easan-master-query"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json || {};\nconst body = item.body || item;\nconst password = String(body.password || '').trim();\nconst action = String(body.action || 'query').trim();\nconst category = String(body.category || '').trim();\nconst pageId = String(body.pageId || '').trim();\nconst newCategory = ['OMBRA', '吹氣盒', '未分類'].includes(body.newCategory) ? body.newCategory : '';\nconst newStatus = ['啟用', '停用'].includes(body.newStatus) ? body.newStatus : '';\n\nreturn [{\n  json: {\n    ok: Boolean(password && password === 'gundam'),\n    action,\n    category,\n    pageId,\n    newCategory,\n    newStatus,\n    nowIso: new Date().toISOString(),\n    response: { ok: false, message: '管理密碼錯誤或沒有權限' }\n  }\n}];"
+      },
+      "id": "mq-0000000000000002",
+      "name": "驗證品項請求",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "mq-0000000000000003-c",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "mq-0000000000000003",
+      "name": "密碼正確",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "mq-0000000000000004",
+      "name": "回傳無權限",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "mq-0000000000000005-c",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "mq-0000000000000005",
+      "name": "是否更新",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.pageId }}"
+        },
+        "simple": true,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "分類|select",
+              "selectValue": "={{ $json.newCategory }}",
+              "ignoreIfEmpty": true
+            },
+            {
+              "key": "狀態|select",
+              "selectValue": "={{ $json.newStatus }}",
+              "ignoreIfEmpty": true
+            },
+            {
+              "key": "最後匯入時間|date",
+              "date": "={{ $json.nowIso }}",
+              "includeTime": true,
+              "range": false,
+              "timezone": "default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mq-0000000000000006",
+      "name": "更新品項",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -120
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "33eb3ad1d1cd80fc9674e730c3c87469"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "none",
+        "options": {}
+      },
+      "id": "mq-0000000000000007",
+      "name": "讀取品項主檔",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        -40
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const auth = $('驗證品項請求').first().json || {};\nconst filterCategory = auth.category || '';\nconst rows = $input.all().map((i) => i.json || {});\n\nfunction propVal(row, name) {\n  const p = row?.properties?.[name];\n  if (p) {\n    switch (p.type) {\n      case 'title': return (p.title || []).map((t) => t.plain_text).join('');\n      case 'rich_text': return (p.rich_text || []).map((t) => t.plain_text).join('');\n      case 'select': return p.select?.name || '';\n      case 'date': return p.date?.start || '';\n      default: return '';\n    }\n  }\n  for (const k of [name, 'property_' + name]) {\n    if (row?.[k] !== undefined && row?.[k] !== null) return row[k];\n  }\n  return '';\n}\n\nconst all = rows.map((row) => ({\n  pageId: row.id || '',\n  partNo: propVal(row, '品號'),\n  name: propVal(row, '品名'),\n  spec: propVal(row, '規格'),\n  category: propVal(row, '分類') || '未分類',\n  status: propVal(row, '狀態') || '',\n  unit: propVal(row, '單位'),\n  categoryName: propVal(row, '類別名稱')\n})).filter((x) => x.partNo);\n\nconst counts = {};\nfor (const it of all) counts[it.category] = (counts[it.category] || 0) + 1;\nconst categoryCounts = { total: all.length, ...counts };\n\nconst filtered = filterCategory ? all.filter((x) => x.category === filterCategory) : all;\nfiltered.sort((a, b) => String(a.partNo).localeCompare(String(b.partNo)));\n\nreturn [{\n  json: {\n    ok: true,\n    categoryCounts,\n    total: all.length,\n    filteredCount: filtered.length,\n    items: filtered.slice(0, 500)\n  }\n}];"
+      },
+      "id": "mq-0000000000000008",
+      "name": "整理品項清單",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "mq-0000000000000009",
+      "name": "回傳品項清單",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -40
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "品項查詢 Webhook": {
+      "main": [
+        [
+          {
+            "node": "驗證品項請求",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "驗證品項請求": {
+      "main": [
+        [
+          {
+            "node": "密碼正確",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "密碼正確": {
+      "main": [
+        [
+          {
+            "node": "是否更新",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "回傳無權限",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "是否更新": {
+      "main": [
+        [
+          {
+            "node": "更新品項",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "讀取品項主檔",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "更新品項": {
+      "main": [
+        [
+          {
+            "node": "讀取品項主檔",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "讀取品項主檔": {
+      "main": [
+        [
+          {
+            "node": "整理品項清單",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "整理品項清單": {
+      "main": [
+        [
+          {
+            "node": "回傳品項清單",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "master-query-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "EasanMasterQuery",
+  "tags": []
+}

@@ -64,7 +64,6 @@
 
       <section id="loginPanel" class="admin-login-panel">
         <div class="section-title">
-          <span>01</span>
           <h3>輸入管理密碼</h3>
         </div>
         <form id="loginForm" class="admin-login-form">
@@ -87,59 +86,20 @@
 
       <section id="dashboardPanel" class="hidden admin-dashboard">
         <div class="admin-tabs" role="tablist" aria-label="管理分頁">
-          <button id="statsTabBtn" class="admin-tab active" type="button" data-tab="stats">執行成效</button>
-          <button id="permissionsTabBtn" class="admin-tab hidden" type="button" data-tab="permissions">人員權限</button>
+          <button id="dashTabBtn" class="admin-tab active" type="button" data-tab="dashboard">儀表板</button>
+          <button id="rawTabBtn" class="admin-tab" type="button" data-tab="raw">原始數據</button>
+          <button id="masterTabBtn" class="admin-tab" type="button" data-tab="master">品項主檔</button>
           <button id="masterImportTabBtn" class="admin-tab" type="button" data-tab="masterImport">主檔匯入</button>
+          <button id="permissionsTabBtn" class="admin-tab hidden" type="button" data-tab="permissions">人員權限</button>
         </div>
 
-        <div id="statsView" class="admin-tab-view">
+        <div id="tabStats" class="tab-stats"></div>
+
+        <div id="dashboardView" class="admin-tab-view">
           <p id="statsMessage" class="result-note">尚未載入，點上方「載入資料」或切換分頁時自動載入。</p>
-          <div class="admin-summary-grid">
-            <div class="metric admin-metric">
-              <span>整體正確率</span>
-              <strong id="accuracyRate">0%</strong>
-            </div>
-            <div class="metric">
-              <span>總明細數</span>
-              <strong id="totalItems">0</strong>
-            </div>
-            <div class="metric ok">
-              <span>通過筆數</span>
-              <strong id="passedItems">0</strong>
-            </div>
-            <div class="metric danger">
-              <span>異常筆數</span>
-              <strong id="abnormalItems">0</strong>
-            </div>
-            <div class="metric">
-              <span>掃描批次</span>
-              <strong id="totalBatches">0</strong>
-            </div>
-            <div class="metric">
-              <span>今日執行</span>
-              <strong id="todayBatches">0</strong>
-            </div>
-            <div class="metric">
-              <span>OCR 完整率</span>
-              <strong id="ocrCompleteRate">0%</strong>
-            </div>
-            <div class="metric">
-              <span>人工修正率</span>
-              <strong id="correctionRate">0%</strong>
-            </div>
-            <div class="metric">
-              <span>平均處理秒數</span>
-              <strong id="avgProcessing">0s</strong>
-            </div>
-            <div class="metric danger">
-              <span>失敗批次</span>
-              <strong id="failedBatches">0</strong>
-            </div>
-          </div>
 
           <section class="result-panel">
             <div class="section-title">
-              <span>02</span>
               <h3>每日趨勢</h3>
             </div>
             <div id="trendChart" class="chart-shell"></div>
@@ -152,48 +112,49 @@
           <div class="analysis-grid">
             <section class="result-panel">
               <div class="section-title">
-                <span>03</span>
                 <h3>錯誤類型分布</h3>
               </div>
               <div id="errorTypeChart" class="bar-list"></div>
             </section>
             <section class="result-panel">
               <div class="section-title">
-                <span>04</span>
-                <h3>OCR 辨識狀態</h3>
+                <h3>問題品號排行</h3>
               </div>
-              <div id="ocrStatusChart" class="bar-list"></div>
+              <div id="problemParts" class="problem-list"></div>
             </section>
           </div>
 
           <div class="analysis-grid">
             <section class="result-panel">
               <div class="section-title">
-                <span>05</span>
-                <h3>問題品號排行</h3>
+                <h3>主檔涵蓋</h3>
               </div>
-              <div id="problemParts" class="problem-list"></div>
+              <div id="masterCoverage" class="notify-grid"></div>
             </section>
             <section class="result-panel">
               <div class="section-title">
-                <span>06</span>
                 <h3>LINE 通知狀況</h3>
               </div>
               <div id="notifyStatus" class="notify-grid"></div>
             </section>
           </div>
+        </div>
 
+        <div id="rawView" class="admin-tab-view hidden">
           <section class="result-panel">
             <div class="section-title">
-              <span>07</span>
               <h3>人員成效</h3>
             </div>
+            <label class="inline-field">
+              選擇人員
+              <select id="operatorSelect"><option value="">全部人員</option></select>
+            </label>
             <div id="operatorList" class="operator-list"></div>
+            <div id="operatorDetail" class="operator-detail"></div>
           </section>
 
           <section class="result-panel">
             <div class="section-title">
-              <span>08</span>
               <h3>近期批次</h3>
             </div>
             <p class="result-note">點選批次列可展開該批次明細</p>
@@ -222,11 +183,50 @@
           </section>
         </div>
 
+        <div id="masterView" class="admin-tab-view hidden">
+          <section class="result-panel">
+            <div class="section-title">
+              <h3>品項主檔</h3>
+            </div>
+            <form id="masterQueryForm" class="master-query-form">
+              <label>
+                分類篩選
+                <select id="masterFilterCategory">
+                  <option value="">全部</option>
+                  <option value="OMBRA">OMBRA</option>
+                  <option value="吹氣盒">吹氣盒</option>
+                  <option value="未分類">未分類</option>
+                </select>
+              </label>
+              <button class="primary-btn" type="submit">查詢</button>
+            </form>
+            <p id="masterQueryMessage" class="result-note">選擇分類後點「查詢」載入品項（預設不載入）。</p>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>品號</th>
+                    <th>品名</th>
+                    <th>規格</th>
+                    <th>分類</th>
+                    <th>狀態</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="masterItemsBody">
+                  <tr class="empty-row">
+                    <td colspan="6">尚未查詢</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
         <div id="permissionsView" class="admin-tab-view hidden">
           <section class="result-panel">
             <div class="section-title split-title">
               <div>
-                <span>04</span>
                 <h3>人員權限</h3>
               </div>
               <button id="permissionsRefreshBtn" class="ghost-btn" type="button">重新讀取</button>
@@ -239,7 +239,6 @@
         <div id="masterImportView" class="admin-tab-view hidden">
           <section class="result-panel">
             <div class="section-title">
-              <span>05</span>
               <h3>匯入品項主檔</h3>
             </div>
             <form id="masterImportForm" class="master-import-form">
@@ -270,7 +269,6 @@
           <section id="masterImportResultPanel" class="result-panel hidden">
             <div class="section-title split-title">
               <div>
-                <span>06</span>
                 <h3>匯入結果</h3>
               </div>
               <button id="masterImportResetBtn" class="ghost-btn" type="button">清除結果</button>
