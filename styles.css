@@ -614,11 +614,13 @@ th {
 }
 
 .topbar-range {
-  display: grid;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: var(--muted);
   align-self: center;
+  white-space: nowrap;
 }
 
 .topbar-range select {
@@ -1212,22 +1214,26 @@ th {
   }
 
   .admin-page .topbar {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .admin-page .topbar-actions {
-    width: 100%;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
   }
 
   .topbar h2 {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .admin-page .eyebrow {
-    font-size: 12px;
+    display: none;
   }
 
   .admin-tabs {
@@ -1236,6 +1242,12 @@ th {
     border-radius: 8px;
     background: var(--surface);
     padding: 4px;
+    top: 68px;
+  }
+
+  .tab-stats {
+    top: 122px;
+    padding: 8px 0;
   }
 
   .admin-tab {
