@@ -58,6 +58,14 @@
         </div>
         <div class="topbar-actions">
           <a class="ghost-btn link-btn" href="index.html">返回核對頁</a>
+          <label id="rangeField" class="topbar-range hidden">
+            統計範圍
+            <select id="rangeInput">
+              <option value="7">近 7 天</option>
+              <option value="30" selected>近 30 天</option>
+              <option value="all">全部</option>
+            </select>
+          </label>
           <button id="refreshBtn" class="primary-btn" type="button" disabled>載入資料</button>
         </div>
       </header>
@@ -66,20 +74,13 @@
         <div class="section-title">
           <h3>輸入管理密碼</h3>
         </div>
+        <p class="admin-login-note">🔒 此頁面僅供管理員操作，需具備管理員權限。</p>
         <form id="loginForm" class="admin-login-form">
           <label>
             管理密碼
             <input id="adminPasswordInput" type="password" autocomplete="current-password" required>
           </label>
-          <label>
-            統計範圍
-            <select id="rangeInput">
-              <option value="7">近 7 天</option>
-              <option value="30" selected>近 30 天</option>
-              <option value="all">全部</option>
-            </select>
-          </label>
-          <button class="primary-btn" type="submit">登入並讀取統計</button>
+          <button class="primary-btn" type="submit">登入</button>
         </form>
         <p id="loginMessage" class="result-note">只需輸入管理密碼，密碼不會儲存在瀏覽器。</p>
       </section>

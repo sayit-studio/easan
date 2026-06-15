@@ -574,11 +574,60 @@ th {
   padding: 18px;
 }
 
+.admin-login-panel {
+  align-self: start;
+  max-width: 460px;
+  margin: 0 auto;
+  width: 100%;
+  text-align: center;
+}
+
+.admin-login-panel .section-title {
+  justify-content: center;
+}
+
+.admin-login-note {
+  margin: 6px 0 14px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .admin-login-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.55fr) auto;
+  grid-template-columns: 1fr;
   gap: 12px;
-  align-items: end;
+  justify-items: center;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.admin-login-form label {
+  width: 100%;
+}
+
+.admin-login-form input {
+  text-align: center;
+}
+
+.admin-login-form .primary-btn {
+  width: 100%;
+}
+
+.topbar-range {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  align-self: center;
+}
+
+.topbar-range select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .admin-login-form label {

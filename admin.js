@@ -40,6 +40,7 @@ const adminEls = {
   rangeInput: document.querySelector("#rangeInput"),
   loginMessage: document.querySelector("#loginMessage"),
   refreshBtn: document.querySelector("#refreshBtn"),
+  rangeField: document.querySelector("#rangeField"),
   tabStats: document.querySelector("#tabStats"),
   dashTabBtn: document.querySelector("#dashTabBtn"),
   rawTabBtn: document.querySelector("#rawTabBtn"),
@@ -853,6 +854,7 @@ function rangeLabel(range) {
 function backToLogin(message) {
   adminEls.loginPanel.classList.remove("hidden");
   adminEls.dashboardPanel.classList.add("hidden");
+  adminEls.rangeField.classList.add("hidden");
   adminEls.refreshBtn.disabled = true;
   adminEls.loginMessage.textContent = message || "";
 }
@@ -865,6 +867,7 @@ function enterDashboard() {
   adminState.permissions = [];
   adminEls.loginPanel.classList.add("hidden");
   adminEls.dashboardPanel.classList.remove("hidden");
+  adminEls.rangeField.classList.remove("hidden");
   adminEls.refreshBtn.disabled = false;
   adminEls.loginMessage.textContent = "";
   adminState.masterCoverage = null;
@@ -896,6 +899,14 @@ adminEls.refreshBtn.addEventListener("click", () => {
     adminState.statsLoaded = false;
     loadStatsSafe();
     loadMasterCoverageSafe();
+  }
+});
+
+adminEls.rangeInput.addEventListener("change", () => {
+  adminState.range = adminEls.rangeInput.value;
+  if (adminState.activeTab === "dashboard" || adminState.activeTab === "raw") {
+    adminState.statsLoaded = false;
+    loadStatsSafe();
   }
 });
 
