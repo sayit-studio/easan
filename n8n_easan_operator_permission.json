@@ -10,12 +10,12 @@
           "allowedOrigins": "*"
         }
       },
-      "id": "c2f7a1a7-7f61-4e9c-b2a5-000000000001",
+      "id": "op-0000000000000001",
       "name": "開通查詢 Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -520,
+        -760,
         0
       ],
       "webhookId": "easan-operator-permission"
@@ -31,45 +31,201 @@
           "value": "374b3ad1d1cd80c6a923fd022abc0305"
         },
         "returnAll": true,
-        "simple": true,
+        "simple": false,
         "filterType": "none",
         "options": {}
       },
-      "id": "c2f7a1a7-7f61-4e9c-b2a5-000000000002",
+      "id": "op-0000000000000002",
       "name": "讀取開通名單",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2.2,
       "position": [
-        -260,
+        -540,
         0
       ],
       "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const requestItem = $('開通查詢 Webhook').first().json || {};\nconst body = requestItem.body || requestItem;\nconst userId = String(body.userId || body.user_id || body.lineUserId || body.line_user_id || body['LINE userId'] || '').trim();\nconst displayName = String(body.displayName || body.name || body.operatorName || '').trim();\nconst operators = $input.all().map((item) => item.json || {});\nconst requiredFeature = 'OCR補料單';\n\nfunction getValue(obj, keys) {\n  for (const key of keys) {\n    if (obj?.[key] !== undefined && obj?.[key] !== null) return obj[key];\n  }\n  return '';\n}\n\nfunction normalize(value) {\n  return String(value || '').trim();\n}\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  const text = String(value ?? '').trim();\n  if (!text) return [];\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  } catch (error) {}\n  return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);\n}\n\nconst matched = operators.find((operator) => {\n  const allowedUserId = normalize(getValue(operator, [\n    'property_LINE userId',\n    'LINE userId',\n    'property_userId',\n    'userId',\n    'property_lineUserId',\n    'lineUserId'\n  ]));\n  return userId && allowedUserId === userId;\n});\n\nconst status = normalize(getValue(matched || {}, ['property_狀態', '狀態']));\nconst features = toList(getValue(matched || {}, ['property_可使用功能', '可使用功能']));\nconst allowed = Boolean(matched && status === '已開通' && features.includes(requiredFeature));\nconst name = normalize(getValue(matched || {}, ['property_名稱', '名稱', 'property_姓名', '姓名', 'property_name', 'name', 'Name', 'title'])) || displayName;\nconst role = normalize(getValue(matched || {}, ['property_角色', '角色']));\nconst response = {\n  ok: Boolean(userId),\n  allowed,\n  userId,\n  name,\n  displayName,\n  role,\n  features,\n  status: status || '未建立',\n  message: userId ? (allowed ? '已開通' : '未開通或未開放 OCR補料單') : '缺少 LINE userId'\n};\n\nreturn [{ json: { ...response, response } }];"
+        "jsCode": "const requestItem = $('開通查詢 Webhook').first().json || {};\nconst body = requestItem.body || requestItem;\nconst userId = String(body.userId || body.user_id || body.lineUserId || body.line_user_id || body['LINE userId'] || '').trim();\nconst displayName = String(body.displayName || body.name || body.operatorName || '').trim();\nconst operators = $input.all().map((item) => item.json || {});\nconst requiredFeature = 'OCR補料單';\nconst nowIso = new Date().toISOString();\n\nfunction propVal(row, name) {\n  const p = row?.properties?.[name];\n  if (p) {\n    switch (p.type) {\n      case 'title': return (p.title || []).map((t) => t.plain_text).join('');\n      case 'rich_text': return (p.rich_text || []).map((t) => t.plain_text).join('');\n      case 'select': return p.select?.name || '';\n      case 'status': return p.status?.name || '';\n      case 'multi_select': return (p.multi_select || []).map((o) => o.name);\n      case 'date': return p.date?.start || '';\n      default: return '';\n    }\n  }\n  for (const k of [name, 'property_' + name]) {\n    if (row?.[k] !== undefined && row?.[k] !== null) return row[k];\n  }\n  return '';\n}\n\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  const text = String(value ?? '').trim();\n  if (!text) return [];\n  try {\n    const parsed = JSON.parse(text);\n    if (Array.isArray(parsed)) return parsed.map((item) => String(item?.name || item).trim()).filter(Boolean);\n  } catch (error) {}\n  return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);\n}\n\nconst matched = operators.find((op) => String(propVal(op, 'LINE userId')).trim() === userId && userId);\nconst status = matched ? String(propVal(matched, '狀態')).trim() : '';\nconst features = matched ? toList(propVal(matched, '可使用功能')) : [];\nconst role = matched ? String(propVal(matched, '角色')).trim() : '';\nconst name = (matched ? String(propVal(matched, '名稱')).trim() : '') || displayName;\nconst allowed = Boolean(matched && status === '已開通' && features.includes(requiredFeature));\n\nconst response = {\n  ok: Boolean(userId),\n  allowed,\n  userId,\n  name,\n  displayName,\n  role,\n  features,\n  status: matched ? (status || '待審核') : '待審核',\n  message: !userId\n    ? '缺少 LINE userId'\n    : (matched\n      ? (allowed ? '已開通' : '未開通或未開放 OCR補料單')\n      : '已建立待審核資料，請等待管理員開通')\n};\n\nlet action = 'none';\nif (userId) action = matched ? 'update' : 'create';\n\nreturn [{\n  json: {\n    response,\n    action,\n    pageId: matched ? (matched.id || '') : '',\n    userId,\n    displayName: displayName || userId,\n    nowIso\n  }\n}];"
       },
-      "id": "c2f7a1a7-7f61-4e9c-b2a5-000000000003",
+      "id": "op-0000000000000003",
       "name": "判斷開通資格",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        0,
+        -320,
         0
       ]
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json.response || $json) }}",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "op-0000000000000004-c",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "c2f7a1a7-7f61-4e9c-b2a5-000000000004",
+      "id": "op-0000000000000004",
+      "name": "是否新人",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "op-0000000000000005-c",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "op-0000000000000005",
+      "name": "是否更新",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        120,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "374b3ad1d1cd80c6a923fd022abc0305"
+        },
+        "title": "={{ $json.displayName }}",
+        "simple": true,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "LINE userId|rich_text",
+              "textContent": "={{ $json.userId }}"
+            },
+            {
+              "key": "LINE顯示名稱|rich_text",
+              "textContent": "={{ $json.displayName }}"
+            },
+            {
+              "key": "狀態|select",
+              "selectValue": "待審核"
+            },
+            {
+              "key": "角色|select",
+              "selectValue": "操作員"
+            },
+            {
+              "key": "首次進入時間|date",
+              "date": "={{ $json.nowIso }}",
+              "includeTime": true,
+              "range": false,
+              "timezone": "default"
+            },
+            {
+              "key": "最後使用時間|date",
+              "date": "={{ $json.nowIso }}",
+              "includeTime": true,
+              "range": false,
+              "timezone": "default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "op-0000000000000006",
+      "name": "建立待審核",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        -100
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.pageId }}"
+        },
+        "simple": true,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "最後使用時間|date",
+              "date": "={{ $json.nowIso }}",
+              "includeTime": true,
+              "range": false,
+              "timezone": "default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "op-0000000000000007",
+      "name": "更新最後使用",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        340,
+        60
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('判斷開通資格').first().json.response) }}",
+        "options": {}
+      },
+      "id": "op-0000000000000008",
       "name": "回傳開通結果",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        260,
+        600,
         0
       ]
     }
@@ -102,6 +258,64 @@
       "main": [
         [
           {
+            "node": "是否新人",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "是否新人": {
+      "main": [
+        [
+          {
+            "node": "建立待審核",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "是否更新",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "是否更新": {
+      "main": [
+        [
+          {
+            "node": "更新最後使用",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "回傳開通結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "建立待審核": {
+      "main": [
+        [
+          {
+            "node": "回傳開通結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "更新最後使用": {
+      "main": [
+        [
+          {
             "node": "回傳開通結果",
             "type": "main",
             "index": 0
@@ -115,7 +329,7 @@
     "executionOrder": "v1",
     "saveManualExecutions": true
   },
-  "versionId": "operator-permission-v1",
+  "versionId": "operator-permission-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },

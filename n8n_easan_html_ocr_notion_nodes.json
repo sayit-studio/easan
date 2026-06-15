@@ -371,6 +371,153 @@
         1420,
         0
       ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "374b3ad1d1cd80c6a923fd022abc0305"
+        },
+        "returnAll": true,
+        "simple": false,
+        "filterType": "none",
+        "options": {}
+      },
+      "id": "ocrperm-00000000000001",
+      "name": "讀取人員權限",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -620,
+        200
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const wh = $('HTML OCR Webhook').first();\nconst body = wh.json?.body || wh.json || {};\nlet operator = {};\ntry {\n  operator = typeof body.operator === 'string' ? JSON.parse(body.operator) : (body.operator || {});\n} catch (e) {\n  operator = {};\n}\nconst userId = String(operator.userId || operator.user_id || body.userId || '').trim();\nconst people = $input.all().map((i) => i.json || {});\n\nfunction propVal(row, name) {\n  const p = row?.properties?.[name];\n  if (p) {\n    switch (p.type) {\n      case 'title': return (p.title || []).map((t) => t.plain_text).join('');\n      case 'rich_text': return (p.rich_text || []).map((t) => t.plain_text).join('');\n      case 'select': return p.select?.name || '';\n      case 'multi_select': return (p.multi_select || []).map((o) => o.name);\n      default: return '';\n    }\n  }\n  for (const k of [name, 'property_' + name]) {\n    if (row?.[k] !== undefined && row?.[k] !== null) return row[k];\n  }\n  return '';\n}\nfunction toList(value) {\n  if (Array.isArray(value)) return value.map((x) => String(x?.name || x).trim()).filter(Boolean);\n  const t = String(value ?? '').trim();\n  if (!t) return [];\n  try { const p = JSON.parse(t); if (Array.isArray(p)) return p.map((x) => String(x?.name || x).trim()).filter(Boolean); } catch (e) {}\n  return t.split(/[,，、]/).map((s) => s.trim()).filter(Boolean);\n}\n\nconst matched = people.find((p) => String(propVal(p, 'LINE userId')).trim() === userId && userId);\nconst status = matched ? String(propVal(matched, '狀態')).trim() : '';\nconst features = matched ? toList(propVal(matched, '可使用功能')) : [];\nconst allowed = Boolean(matched && status === '已開通' && features.includes('OCR補料單'));\nconst operatorName = String(operator.name || operator.displayName || (matched ? propVal(matched, '名稱') : '') || '').trim();\n\nreturn [{\n  json: {\n    ...wh.json,\n    _allowed: allowed,\n    _userId: userId,\n    _operatorName: operatorName,\n    _status: matched ? (status || '待審核') : '未建立',\n    _nowIso: new Date().toISOString()\n  },\n  binary: wh.binary\n}];"
+      },
+      "id": "ocrperm-00000000000002",
+      "name": "驗證操作權限",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ocrperm-gate-c",
+              "leftValue": "={{ $json._allowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ocrperm-00000000000003",
+      "name": "是否已授權",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "374b3ad1d1cd80eeb5dff6b5991e1d29"
+        },
+        "title": "={{ '未授權-' + ($json._nowIso || '').replace(/[-:.TZ]/g, '').slice(0,14) }}",
+        "simple": true,
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "操作人|rich_text",
+              "textContent": "={{ $json._operatorName }}"
+            },
+            {
+              "key": "LINE userId|rich_text",
+              "textContent": "={{ $json._userId }}"
+            },
+            {
+              "key": "來源|select",
+              "selectValue": "LIFF"
+            },
+            {
+              "key": "上傳時間|date",
+              "date": "={{ $json._nowIso }}",
+              "includeTime": true,
+              "range": false,
+              "timezone": "default"
+            },
+            {
+              "key": "狀態|select",
+              "selectValue": "待授權"
+            },
+            {
+              "key": "通知狀態|select",
+              "selectValue": "不需通知"
+            },
+            {
+              "key": "錯誤訊息|rich_text",
+              "textContent": "={{ '未開通或未開放 OCR補料單（狀態：' + $json._status + '）' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ocrperm-00000000000004",
+      "name": "記錄待授權批次",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -380,
+        180
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, allowed: false, message: '此帳號尚未開通 OCR 補料單權限，請聯絡管理員開通。', status: $('驗證操作權限').first().json._status }) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "ocrperm-00000000000005",
+      "name": "回傳未授權",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -140,
+        180
+      ]
     }
   ],
   "pinData": {},
@@ -379,7 +526,7 @@
       "main": [
         [
           {
-            "node": "準備 Gemini 請求",
+            "node": "讀取人員權限",
             "type": "main",
             "index": 0
           }
@@ -479,6 +626,57 @@
         [
           {
             "node": "回傳 HTML 結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "讀取人員權限": {
+      "main": [
+        [
+          {
+            "node": "驗證操作權限",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "驗證操作權限": {
+      "main": [
+        [
+          {
+            "node": "是否已授權",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "是否已授權": {
+      "main": [
+        [
+          {
+            "node": "準備 Gemini 請求",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "記錄待授權批次",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "記錄待授權批次": {
+      "main": [
+        [
+          {
+            "node": "回傳未授權",
             "type": "main",
             "index": 0
           }

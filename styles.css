@@ -883,13 +883,18 @@ th {
 
 .permission-card {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px) minmax(120px, max-content) auto;
+  grid-template-columns: minmax(200px, 1.3fr) minmax(110px, 130px) minmax(110px, 130px) minmax(150px, max-content) auto;
   gap: 12px;
   align-items: end;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-2);
+}
+
+.permission-features {
+  display: grid;
+  gap: 6px;
 }
 
 .permission-person {

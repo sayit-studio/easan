@@ -5,13 +5,27 @@ const adminState = {
   activeTab: "stats",
   permissions: [],
   masterImportResult: null,
+  self: { userId: "", name: "管理員", features: [], role: "", identified: false },
 };
 
 const ADMIN_CONFIG = {
   statsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-stats",
   permissionsWebhook: "https://sayitstudio.zeabur.app/webhook/easan-admin-permissions",
   masterImportWebhook: "https://sayitstudio.zeabur.app/webhook/easan-master-import",
+  operatorPermissionWebhook: "https://sayitstudio.zeabur.app/webhook/easan-operator-permission",
+  liffId: "2010295228-FaJJlXg9",
+  liffEndpoint: "https://easan.pages.dev/admin.html",
 };
+
+const FEATURE_OPTIONS = ["OCR補料單", "報表查看", "權限管理"];
+const ROLE_OPTIONS = ["操作員", "管理員"];
+
+function canManagePermissions() {
+  // 未取得 LIFF 身分時（例如桌機瀏覽器）以密碼為準，仍允許管理；
+  // 取得身分後則必須具備「權限管理」功能。
+  if (!adminState.self.identified) return true;
+  return adminState.self.features.includes("權限管理");
+}
 
 const adminEls = {
   loginPanel: document.querySelector("#loginPanel"),
@@ -461,15 +475,26 @@ function renderPermissions(operators) {
   adminEls.permissionMessage.textContent = "";
   adminEls.permissionList.innerHTML = adminState.permissions.map((operator) => {
     const features = featureList(operator.features || operator["可使用功能"]);
-    const ocrEnabled = features.includes("OCR補料單");
     const pageId = escapeHtml(operator.pageId || operator.id || "");
     const status = operator.status || "待審核";
+    const role = operator.role || "操作員";
+    const featureBoxes = FEATURE_OPTIONS.map((feature) => `
+          <label class="permission-toggle">
+            <input class="permission-feature" type="checkbox" value="${escapeHtml(feature)}" ${features.includes(feature) ? "checked" : ""}>
+            <span>${escapeHtml(feature)}</span>
+          </label>
+        `).join("");
+    const approveInfo = operator.approvedAt
+      ? `開通：${escapeHtml(formatTime(operator.approvedAt))}${operator.approvedBy ? "（" + escapeHtml(operator.approvedBy) + "）" : ""}`
+      : (operator.firstSeen ? `首次進入：${escapeHtml(formatTime(operator.firstSeen))}` : "");
     return `
       <article class="permission-card" data-page-id="${pageId}">
         <div class="permission-person">
           <strong>${escapeHtml(operator.name || "未命名")}</strong>
+          <span class="state ${status === "已開通" ? "ok" : (status === "停用" ? "bad" : "")}">${escapeHtml(status)}</span>
           <span>${escapeHtml(operator.userId || "")}</span>
           <small>${escapeHtml(operator.displayName || "")}</small>
+          ${approveInfo ? `<small class="muted">${approveInfo}</small>` : ""}
         </div>
         <label>
           狀態
@@ -479,10 +504,13 @@ function renderPermissions(operators) {
             <option value="停用" ${status === "停用" ? "selected" : ""}>停用</option>
           </select>
         </label>
-        <label class="permission-toggle">
-          <input class="permission-ocr" type="checkbox" ${ocrEnabled ? "checked" : ""}>
-          <span>OCR補料單</span>
+        <label>
+          角色
+          <select class="permission-role">
+            ${ROLE_OPTIONS.map((r) => `<option value="${r}" ${role === r ? "selected" : ""}>${r}</option>`).join("")}
+          </select>
         </label>
+        <div class="permission-features">${featureBoxes}</div>
         <button class="primary-btn permission-save-btn" type="button">儲存</button>
       </article>
     `;
@@ -552,6 +580,42 @@ async function loadPermissions() {
   renderPermissions(payload.operators || []);
 }
 
+function applyPermissionGate() {
+  const allowed = canManagePermissions();
+  adminEls.permissionsTabBtn.classList.toggle("hidden", !allowed);
+  if (!allowed && adminState.activeTab === "permissions") {
+    setActiveTab("stats");
+  }
+}
+
+async function initAdminIdentity() {
+  if (!window.liff) {
+    adminState.self = { userId: "", name: "管理員", features: [], role: "", identified: false };
+    return;
+  }
+  try {
+    await window.liff.init({ liffId: ADMIN_CONFIG.liffId });
+    if (!window.liff.isLoggedIn()) return;
+    const profile = await window.liff.getProfile();
+    const response = await fetch(ADMIN_CONFIG.operatorPermissionWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: profile.userId, displayName: profile.displayName }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    adminState.self = {
+      userId: profile.userId || "",
+      name: payload.name || profile.displayName || "管理員",
+      features: Array.isArray(payload.features) ? payload.features : [],
+      role: payload.role || "",
+      identified: true,
+    };
+  } catch (error) {
+    adminState.self = { userId: "", name: "管理員", features: [], role: "", identified: false };
+  }
+  applyPermissionGate();
+}
+
 async function loadStats() {
   adminEls.loginMessage.textContent = "讀取統計資料中...";
   const payload = await fetchStats();
@@ -561,9 +625,12 @@ async function loadStats() {
   adminEls.dashboardPanel.classList.remove("hidden");
   adminEls.refreshBtn.disabled = false;
   adminEls.loginMessage.textContent = "";
-  loadPermissions().catch((error) => {
-    adminEls.permissionMessage.textContent = error.message;
-  });
+  applyPermissionGate();
+  if (canManagePermissions()) {
+    loadPermissions().catch((error) => {
+      adminEls.permissionMessage.textContent = error.message;
+    });
+  }
 }
 
 adminEls.loginForm.addEventListener("submit", (event) => {
@@ -651,11 +718,13 @@ adminEls.permissionList.addEventListener("click", (event) => {
   const card = button.closest(".permission-card");
   const pageId = card.dataset.pageId;
   const status = card.querySelector(".permission-status").value;
-  const ocrEnabled = card.querySelector(".permission-ocr").checked;
+  const role = card.querySelector(".permission-role")?.value || "操作員";
+  const features = [...card.querySelectorAll(".permission-feature:checked")].map((el) => el.value);
+  const approver = adminState.self.name || "管理員";
 
   button.disabled = true;
   button.textContent = "儲存中";
-  fetchPermissions("update", { pageId, status, ocrEnabled })
+  fetchPermissions("update", { pageId, status, role, features, approver })
     .then((payload) => {
       renderPermissions(payload.operators || []);
       adminEls.permissionMessage.textContent = "權限已更新";
@@ -709,3 +778,5 @@ adminEls.mobileMenu?.addEventListener("click", (event) => {
     adminEls.mobileMenuBtn.setAttribute("aria-expanded", "false");
   }
 });
+
+initAdminIdentity();
