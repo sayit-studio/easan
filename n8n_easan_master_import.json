@@ -171,7 +171,7 @@
           "value": "33eb3ad1d1cd80fc9674e730c3c87469"
         },
         "returnAll": true,
-        "simple": true,
+        "simple": false,
         "filterType": "none",
         "options": {}
       },
@@ -186,7 +186,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const payload = $('整理與驗證列').first().json;\nconst masterItems = $input.all().map((i) => i.json || {});\nconst importBatchId = `IMP-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;\n\nfunction getValue(obj, keys) {\n  for (const k of keys) {\n    if (obj?.[k] !== undefined && obj?.[k] !== null) return obj[k];\n  }\n  return '';\n}\n\nconst map = new Map();\nfor (const m of masterItems) {\n  const partNo = String(getValue(m, ['品號', 'property_品號', 'name', 'Name', 'title'])).trim();\n  const pageId = m.id || m.pageId || getValue(m, ['id']);\n  if (partNo && pageId) map.set(partNo, pageId);\n}\n\nconst out = [];\nfor (const row of payload.rows) {\n  const pageId = map.get(row.partNo) || '';\n  out.push({ json: { action: pageId ? 'update' : 'create', pageId, mode: payload.mode, importBatchId, ...row } });\n}\nfor (const bad of payload.invalid) {\n  out.push({ json: { action: 'invalid', mode: payload.mode, partNo: bad.partNo, message: bad.message } });\n}\nif (!out.length) out.push({ json: { action: 'none', mode: payload.mode } });\nreturn out;"
+        "jsCode": "const payload = $('整理與驗證列').first().json;\nconst masterItems = $input.all().map((i) => i.json || {});\nconst importBatchId = `IMP-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;\n\nfunction propVal(row, name) {\n  const p = row?.properties?.[name];\n  if (p) {\n    switch (p.type) {\n      case 'title': return (p.title || []).map((t) => t.plain_text).join('');\n      case 'rich_text': return (p.rich_text || []).map((t) => t.plain_text).join('');\n      case 'select': return p.select?.name || '';\n      default: return '';\n    }\n  }\n  for (const k of [name, 'property_' + name]) {\n    if (row?.[k] !== undefined && row?.[k] !== null) return row[k];\n  }\n  return '';\n}\n\nconst map = new Map();\nfor (const m of masterItems) {\n  const partNo = String(propVal(m, '品號') || m.name || '').trim();\n  const pageId = m.id || m.pageId || '';\n  if (partNo && pageId) map.set(partNo, pageId);\n}\n\nconst out = [];\nfor (const row of payload.rows) {\n  const pageId = map.get(row.partNo) || '';\n  out.push({ json: { action: pageId ? 'update' : 'create', pageId, mode: payload.mode, importBatchId, ...row } });\n}\nfor (const bad of payload.invalid) {\n  out.push({ json: { action: 'invalid', mode: payload.mode, partNo: bad.partNo, message: bad.message } });\n}\nif (!out.length) out.push({ json: { action: 'none', mode: payload.mode } });\nreturn out;"
       },
       "id": "mi-0000000000000010",
       "name": "分類動作",
