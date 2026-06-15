@@ -118,11 +118,73 @@
               <span>今日執行</span>
               <strong id="todayBatches">0</strong>
             </div>
+            <div class="metric">
+              <span>OCR 完整率</span>
+              <strong id="ocrCompleteRate">0%</strong>
+            </div>
+            <div class="metric">
+              <span>人工修正率</span>
+              <strong id="correctionRate">0%</strong>
+            </div>
+            <div class="metric">
+              <span>平均處理秒數</span>
+              <strong id="avgProcessing">0s</strong>
+            </div>
+            <div class="metric danger">
+              <span>失敗批次</span>
+              <strong id="failedBatches">0</strong>
+            </div>
           </div>
 
           <section class="result-panel">
             <div class="section-title">
               <span>02</span>
+              <h3>每日趨勢</h3>
+            </div>
+            <div id="trendChart" class="chart-shell"></div>
+            <p class="chart-legend">
+              <span class="legend-dot bar"></span>每日筆數
+              <span class="legend-dot line"></span>正確率
+            </p>
+          </section>
+
+          <div class="analysis-grid">
+            <section class="result-panel">
+              <div class="section-title">
+                <span>03</span>
+                <h3>錯誤類型分布</h3>
+              </div>
+              <div id="errorTypeChart" class="bar-list"></div>
+            </section>
+            <section class="result-panel">
+              <div class="section-title">
+                <span>04</span>
+                <h3>OCR 辨識狀態</h3>
+              </div>
+              <div id="ocrStatusChart" class="bar-list"></div>
+            </section>
+          </div>
+
+          <div class="analysis-grid">
+            <section class="result-panel">
+              <div class="section-title">
+                <span>05</span>
+                <h3>問題品號排行</h3>
+              </div>
+              <div id="problemParts" class="problem-list"></div>
+            </section>
+            <section class="result-panel">
+              <div class="section-title">
+                <span>06</span>
+                <h3>LINE 通知狀況</h3>
+              </div>
+              <div id="notifyStatus" class="notify-grid"></div>
+            </section>
+          </div>
+
+          <section class="result-panel">
+            <div class="section-title">
+              <span>07</span>
               <h3>人員成效</h3>
             </div>
             <div id="operatorList" class="operator-list"></div>
@@ -130,9 +192,10 @@
 
           <section class="result-panel">
             <div class="section-title">
-              <span>03</span>
+              <span>08</span>
               <h3>近期批次</h3>
             </div>
+            <p class="result-note">點選批次列可展開該批次明細</p>
             <div class="table-wrap">
               <table class="admin-table">
                 <thead>
@@ -145,11 +208,12 @@
                     <th>通過</th>
                     <th>異常</th>
                     <th>正確率</th>
+                    <th>通知</th>
                   </tr>
                 </thead>
                 <tbody id="recentBody">
                   <tr class="empty-row">
-                    <td colspan="8">尚未讀取統計資料</td>
+                    <td colspan="9">尚未讀取統計資料</td>
                   </tr>
                 </tbody>
               </table>

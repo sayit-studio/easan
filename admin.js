@@ -50,6 +50,15 @@ const adminEls = {
   todayBatches: document.querySelector("#todayBatches"),
   operatorList: document.querySelector("#operatorList"),
   recentBody: document.querySelector("#recentBody"),
+  ocrCompleteRate: document.querySelector("#ocrCompleteRate"),
+  correctionRate: document.querySelector("#correctionRate"),
+  avgProcessing: document.querySelector("#avgProcessing"),
+  failedBatches: document.querySelector("#failedBatches"),
+  trendChart: document.querySelector("#trendChart"),
+  errorTypeChart: document.querySelector("#errorTypeChart"),
+  ocrStatusChart: document.querySelector("#ocrStatusChart"),
+  problemParts: document.querySelector("#problemParts"),
+  notifyStatus: document.querySelector("#notifyStatus"),
 };
 
 function toNumber(value) {
@@ -199,10 +208,123 @@ function normalizeStats(payload) {
       abnormalItems,
       totalBatches: toNumber(summary.total_batches ?? summary.totalBatches),
       todayBatches: toNumber(summary.today_batches ?? summary.todayBatches),
+      failedBatches: toNumber(summary.failed_batches ?? summary.failedBatches),
+      correctionRate: summary.correction_rate ?? summary.correctionRate ?? 0,
+      ocrCompleteRate: summary.ocr_complete_rate ?? summary.ocrCompleteRate ?? 0,
+      avgProcessingSeconds: toNumber(summary.avg_processing_seconds ?? summary.avgProcessingSeconds),
     },
     operators: payload.operators || payload.operator_stats || [],
     recent: payload.recent || payload.recent_batches || [],
+    daily: payload.daily || [],
+    errorTypes: payload.errorTypes || payload.error_types || [],
+    ocrStatus: payload.ocrStatus || payload.ocr_status || [],
+    problemParts: payload.problemParts || payload.problem_parts || [],
+    notify: payload.notify || [],
+    details: payload.details || [],
   };
+}
+
+function formatNumber(value) {
+  return String(toNumber(value));
+}
+
+function buildTrendChart(daily) {
+  if (!daily.length) {
+    return '<p class="result-note">尚無趨勢資料</p>';
+  }
+  const rows = daily.slice(-30);
+  const W = Math.max(rows.length * 38, 320);
+  const H = 200;
+  const padX = 30;
+  const padTop = 16;
+  const padBottom = 34;
+  const plotH = H - padTop - padBottom;
+  const maxTotal = Math.max(1, ...rows.map((d) => toNumber(d.total)));
+  const step = rows.length > 1 ? (W - padX * 2) / (rows.length - 1) : 0;
+  const barW = Math.min(24, Math.max(8, (rows.length > 1 ? step : W - padX * 2) * 0.5));
+
+  const bars = rows.map((d, i) => {
+    const x = rows.length > 1 ? padX + step * i : W / 2;
+    const h = (toNumber(d.total) / maxTotal) * plotH;
+    const y = padTop + plotH - h;
+    return `<rect x="${(x - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="3" class="trend-bar"><title>${escapeHtml(d.date)}：${toNumber(d.total)} 筆</title></rect>`;
+  }).join("");
+
+  const points = rows.map((d, i) => {
+    const x = rows.length > 1 ? padX + step * i : W / 2;
+    const acc = Math.max(0, Math.min(1, toNumber(d.accuracy)));
+    const y = padTop + plotH - acc * plotH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const line = rows.length > 1
+    ? `<polyline points="${points.join(" ")}" class="trend-line" fill="none" />`
+    : "";
+  const dots = rows.map((d, i) => {
+    const x = rows.length > 1 ? padX + step * i : W / 2;
+    const acc = Math.max(0, Math.min(1, toNumber(d.accuracy)));
+    const y = padTop + plotH - acc * plotH;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="trend-dot"><title>${escapeHtml(d.date)}：正確率 ${formatPercent(d.accuracy)}</title></circle>`;
+  }).join("");
+
+  const labelEvery = Math.ceil(rows.length / 8);
+  const labels = rows.map((d, i) => {
+    if (i % labelEvery !== 0 && i !== rows.length - 1) return "";
+    const x = rows.length > 1 ? padX + step * i : W / 2;
+    const short = String(d.date).slice(5);
+    return `<text x="${x.toFixed(1)}" y="${H - 12}" class="trend-label" text-anchor="middle">${escapeHtml(short)}</text>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="trend-svg" role="img" aria-label="每日趨勢圖">${bars}${line}${dots}${labels}</svg>`;
+}
+
+function buildBarList(items, tone) {
+  if (!items.length) {
+    return '<p class="result-note">尚無資料</p>';
+  }
+  const max = Math.max(1, ...items.map((it) => toNumber(it.count)));
+  return items.map((it) => {
+    const pct = (toNumber(it.count) / max) * 100;
+    return `
+      <div class="bar-row">
+        <span class="bar-label">${escapeHtml(it.name)}</span>
+        <span class="bar-track"><span class="bar-fill ${tone || ""}" style="width:${pct.toFixed(1)}%"></span></span>
+        <span class="bar-value">${toNumber(it.count)}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function buildProblemParts(parts) {
+  if (!parts.length) {
+    return '<p class="result-note">近期無異常品號</p>';
+  }
+  return parts.map((p, i) => `
+    <div class="problem-row">
+      <span class="problem-rank">${i + 1}</span>
+      <div class="problem-info">
+        <strong>${escapeHtml(p.partNo)}</strong>
+        <small>${escapeHtml((p.reasons || []).join("、"))}</small>
+      </div>
+      <span class="problem-count">${toNumber(p.count)} 次</span>
+    </div>
+  `).join("");
+}
+
+function buildNotify(notify) {
+  if (!notify.length) {
+    return '<p class="result-note">尚無通知紀錄</p>';
+  }
+  const toneOf = (name) => {
+    if (name.includes("失敗")) return "danger";
+    if (name.includes("已通知")) return "ok";
+    return "";
+  };
+  return notify.map((n) => `
+    <div class="metric ${toneOf(n.name)}">
+      <span>${escapeHtml(n.name)}</span>
+      <strong>${toNumber(n.count)}</strong>
+    </div>
+  `).join("");
 }
 
 function renderDashboard(payload) {
@@ -215,6 +337,24 @@ function renderDashboard(payload) {
   adminEls.abnormalItems.textContent = String(summary.abnormalItems);
   adminEls.totalBatches.textContent = String(summary.totalBatches);
   adminEls.todayBatches.textContent = String(summary.todayBatches);
+  adminEls.ocrCompleteRate.textContent = formatPercent(summary.ocrCompleteRate);
+  adminEls.correctionRate.textContent = formatPercent(summary.correctionRate);
+  adminEls.avgProcessing.textContent = `${summary.avgProcessingSeconds}s`;
+  adminEls.failedBatches.textContent = String(summary.failedBatches);
+
+  adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
+  adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
+  adminEls.ocrStatusChart.innerHTML = buildBarList(data.ocrStatus, "");
+  adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
+  adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
+
+  adminState.detailsByBatch = new Map();
+  for (const row of data.details) {
+    const key = String(row.batchId || "");
+    if (!key) continue;
+    if (!adminState.detailsByBatch.has(key)) adminState.detailsByBatch.set(key, []);
+    adminState.detailsByBatch.get(key).push(row);
+  }
 
   if (!data.operators.length) {
     adminEls.operatorList.innerHTML = '<p class="result-note">尚無人員統計資料</p>';
@@ -242,27 +382,71 @@ function renderDashboard(payload) {
   }
 
   if (!data.recent.length) {
-    adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="8">尚無近期批次</td></tr>';
+    adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="9">尚無近期批次</td></tr>';
   } else {
     adminEls.recentBody.innerHTML = data.recent.map((batch) => {
       const total = toNumber(batch.total ?? batch.total_items);
       const passed = toNumber(batch.passed ?? batch.passed_items);
       const abnormal = toNumber(batch.abnormal ?? batch.abnormal_items);
       const accuracy = batch.accuracy ?? batch.accuracy_rate ?? (total ? passed / total : 0);
+      const batchId = batch.batchId || batch.batch_id || "";
+      const notify = batch.notifyStatus || batch.notify_status || "";
+      const time = formatTime(batch.time || batch.created_at || "");
       return `
-        <tr>
-          <td>${escapeHtml(batch.time || batch.created_at || "")}</td>
-          <td>${escapeHtml(batch.batchId || batch.batch_id || "")}</td>
+        <tr class="batch-row" data-batch-id="${escapeHtml(batchId)}" tabindex="0">
+          <td>${escapeHtml(time)}</td>
+          <td><span class="batch-toggle">▸</span>${escapeHtml(batchId)}</td>
           <td>${escapeHtml(batch.operator || batch.operator_name || "")}</td>
           <td>${escapeHtml(batch.orderNo || batch.order_no || "")}</td>
           <td>${total}</td>
           <td>${passed}</td>
           <td>${abnormal}</td>
           <td>${formatPercent(accuracy)}</td>
+          <td>${escapeHtml(notify) || "—"}</td>
         </tr>
       `;
     }).join("");
   }
+}
+
+function formatTime(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const time = new Date(raw);
+  if (Number.isNaN(time.getTime())) return raw;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
+}
+
+function buildBatchDetailRow(batchId) {
+  const rows = (adminState.detailsByBatch && adminState.detailsByBatch.get(String(batchId))) || [];
+  if (!rows.length) {
+    return `<tr class="batch-detail-row"><td colspan="9"><p class="result-note">此批次明細未載入（可能超出統計範圍上限）</p></td></tr>`;
+  }
+  const body = rows.map((r) => {
+    const ok = r.status === "OK";
+    const types = (r.errorTypes || []).join("、");
+    return `
+      <tr>
+        <td><span class="state ${ok ? "ok" : "bad"}">${escapeHtml(r.status || "")}</span></td>
+        <td>${escapeHtml(r.partNo || "（空）")}</td>
+        <td><span class="cell-text">${escapeHtml(r.spec || "")}</span></td>
+        <td>${escapeHtml(r.ocrStatus || "")}</td>
+        <td>${escapeHtml(types)}</td>
+        <td><span class="cell-text">${escapeHtml(r.note || "")}</span></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <tr class="batch-detail-row">
+      <td colspan="9">
+        <table class="batch-detail-table">
+          <thead><tr><th>狀態</th><th>品號</th><th>規格</th><th>OCR</th><th>錯誤類型</th><th>備註</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </td>
+    </tr>
+  `;
 }
 
 function renderPermissions(operators) {
@@ -483,6 +667,32 @@ adminEls.permissionList.addEventListener("click", (event) => {
       button.disabled = false;
       button.textContent = "儲存";
     });
+});
+
+function toggleBatchRow(row) {
+  if (!row) return;
+  const next = row.nextElementSibling;
+  if (next && next.classList.contains("batch-detail-row")) {
+    next.remove();
+    row.classList.remove("expanded");
+    return;
+  }
+  document.querySelectorAll(".batch-detail-row").forEach((el) => el.remove());
+  document.querySelectorAll(".batch-row.expanded").forEach((el) => el.classList.remove("expanded"));
+  row.insertAdjacentHTML("afterend", buildBatchDetailRow(row.dataset.batchId));
+  row.classList.add("expanded");
+}
+
+adminEls.recentBody.addEventListener("click", (event) => {
+  toggleBatchRow(event.target.closest(".batch-row"));
+});
+
+adminEls.recentBody.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest(".batch-row");
+  if (!row) return;
+  event.preventDefault();
+  toggleBatchRow(row);
 });
 
 adminEls.mobileMenuBtn?.addEventListener("click", () => {
