@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json || {};\nconst body = item.body || item;\nconst expectedPassword = 'gundam';\nconst password = String(body.password || '').trim();\nconst range = String(body.range || '30').trim();\n\nreturn [{\n  json: {\n    ok: password && password === expectedPassword,\n    range,\n    response: {\n      ok: false,\n      message: '管理密碼錯誤或沒有權限'\n    }\n  }\n}];"
+        "jsCode": "const item = $input.first().json || {};\nconst body = item.body || item;\nconst expectedPassword = 'gundam';\nconst password = String(body.password || '').trim();\nconst range = String(body.range || '30').trim();\n\nconst days = Number(range);\nlet cutoffISO = '2000-01-01T00:00:00.000Z';\nif (Number.isFinite(days)) {\n  cutoffISO = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();\n}\n\nreturn [{\n  json: {\n    ok: password && password === expectedPassword,\n    range,\n    cutoffISO,\n    response: { ok: false, message: '管理密碼錯誤或沒有權限' }\n  }\n}];"
       },
       "id": "e4b9d3c9-9f93-4b1e-9a79-000000000002",
       "name": "驗證管理密碼",
@@ -95,8 +95,9 @@
         },
         "returnAll": true,
         "simple": false,
-        "filterType": "none",
-        "options": {}
+        "filterType": "json",
+        "options": {},
+        "jsonNotion": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
       },
       "id": "e4b9d3c9-9f93-4b1e-9a79-000000000005",
       "name": "讀取掃描批次",
@@ -119,8 +120,9 @@
         },
         "returnAll": true,
         "simple": false,
-        "filterType": "none",
-        "options": {}
+        "filterType": "json",
+        "options": {},
+        "jsonNotion": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
       },
       "id": "e4b9d3c9-9f93-4b1e-9a79-000000000006",
       "name": "讀取 OCR 明細",
