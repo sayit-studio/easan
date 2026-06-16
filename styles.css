@@ -1067,6 +1067,18 @@ th {
   gap: 6px;
 }
 
+.permission-nick {
+  width: 100%;
+  min-height: 34px;
+  margin: 2px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text);
+  background: var(--surface);
+  font-size: 13px;
+}
+
 .permission-person {
   display: grid;
   gap: 3px;

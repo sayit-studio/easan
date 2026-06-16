@@ -453,11 +453,15 @@ function operatorKey(operator) {
   return operator.userId || operator.name || "";
 }
 
+function opDisplay(operator) {
+  return operator.nickname || operator.name || "未命名";
+}
+
 function renderOperators(data) {
   const ops = data.operators || [];
   const current = adminState.selectedOperator;
   adminEls.operatorSelect.innerHTML = '<option value="">全部人員</option>' +
-    ops.map((o) => `<option value="${escapeHtml(operatorKey(o))}" ${operatorKey(o) === current ? "selected" : ""}>${escapeHtml(o.name || "未命名")}</option>`).join("");
+    ops.map((o) => `<option value="${escapeHtml(operatorKey(o))}" ${operatorKey(o) === current ? "selected" : ""}>${escapeHtml(opDisplay(o))}</option>`).join("");
 
   if (!ops.length) {
     adminEls.operatorList.innerHTML = '<p class="result-note">尚無人員統計資料</p>';
@@ -474,7 +478,7 @@ function renderOperators(data) {
     return `
       <article class="operator-card${selected}" data-op="${escapeHtml(operatorKey(operator))}" tabindex="0">
         <div>
-          <strong>${escapeHtml(operator.name || "未命名")}</strong>
+          <strong>${escapeHtml(opDisplay(operator))}</strong>
           <span>${escapeHtml(operator.userId || "")}</span>
         </div>
         <div class="operator-stats">
@@ -504,7 +508,7 @@ function renderOperatorDetail(data) {
   const batches = (data.recent || []).filter((b) => (b.operator || "") === op.name);
   adminEls.operatorDetail.innerHTML = `
     <div class="operator-detail-card">
-      <strong>${escapeHtml(op.name)} 的成效</strong>
+      <strong>${escapeHtml(opDisplay(op))} 的成效</strong>
       <div class="operator-stats">
         <span>總筆數 ${toNumber(op.total)}</span>
         <span>通過 ${toNumber(op.passed)}</span>
@@ -542,7 +546,7 @@ function renderRecent(data) {
       <tr class="batch-row" data-batch-id="${escapeHtml(batchId)}" tabindex="0">
         <td>${escapeHtml(time)}</td>
         <td><span class="batch-toggle">▸</span>${escapeHtml(batchId)}</td>
-        <td>${escapeHtml(batch.operator || "")}</td>
+        <td>${escapeHtml(batch.operatorNick || batch.operator || "")}</td>
         <td>${escapeHtml(batch.orderNo || "")}</td>
         <td>${total}</td>
         <td>${passed}</td>
@@ -630,6 +634,7 @@ function renderPermissions(operators) {
         <div class="permission-person">
           <strong>${escapeHtml(operator.name || "未命名")}</strong>
           <span class="state ${status === "已開通" ? "ok" : (status === "停用" ? "bad" : "")}">${escapeHtml(status)}</span>
+          <input class="permission-nick" type="text" placeholder="設定暱稱（統計顯示用）" value="${escapeHtml(operator.nickname || "")}">
           <span>${escapeHtml(operator.userId || "")}</span>
           <small>${escapeHtml(operator.displayName || "")}</small>
           ${approveInfo ? `<small class="muted">${approveInfo}</small>` : ""}
@@ -1022,11 +1027,12 @@ adminEls.permissionList.addEventListener("click", (event) => {
   const status = card.querySelector(".permission-status").value;
   const role = card.querySelector(".permission-role")?.value || "操作員";
   const features = [...card.querySelectorAll(".permission-feature:checked")].map((el) => el.value);
+  const nickname = card.querySelector(".permission-nick")?.value || "";
   const approver = adminState.self.name || "管理員";
 
   button.disabled = true;
   button.textContent = "儲存中";
-  fetchPermissions("update", { pageId, status, role, features, approver })
+  fetchPermissions("update", { pageId, status, role, features, nickname, approver })
     .then((payload) => {
       renderPermissions(payload.operators || []);
       adminEls.permissionMessage.textContent = "權限已更新";
