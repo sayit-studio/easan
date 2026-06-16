@@ -97,7 +97,7 @@
         "simple": false,
         "filterType": "json",
         "options": {},
-        "jsonNotion": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
+        "filterJson": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
       },
       "id": "e4b9d3c9-9f93-4b1e-9a79-000000000005",
       "name": "讀取掃描批次",
@@ -122,7 +122,7 @@
         "simple": false,
         "filterType": "json",
         "options": {},
-        "jsonNotion": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
+        "filterJson": "={{ JSON.stringify({ timestamp: 'created_time', created_time: { on_or_after: $('驗證管理密碼').first().json.cutoffISO } }) }}"
       },
       "id": "e4b9d3c9-9f93-4b1e-9a79-000000000006",
       "name": "讀取 OCR 明細",
