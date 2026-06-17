@@ -252,6 +252,30 @@ async function fetchPermissions(action = "list", data = {}) {
   return payload;
 }
 
+async function validateAdminLogin(password) {
+  const response = await fetch(ADMIN_CONFIG.permissionsWebhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      password,
+      action: "auth",
+    }),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("管理密碼錯誤或沒有權限");
+  }
+  if (!response.ok) {
+    throw new Error(`管理密碼驗證失敗：${response.status}`);
+  }
+
+  const payload = await readJsonResponse(response, "管理密碼驗證失敗");
+  if (payload.ok === false) {
+    throw new Error(payload.message || "管理密碼錯誤或沒有權限");
+  }
+  return payload;
+}
+
 async function submitMasterImport(mode, file, category) {
   const form = new FormData();
   form.append("password", adminState.password);
@@ -912,9 +936,23 @@ function openDashboard() {
   setActiveTab("dashboard");
 }
 
-adminEls.loginForm.addEventListener("submit", (event) => {
+adminEls.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  enterDashboard();
+  const password = adminEls.adminPasswordInput.value;
+  const submitBtn = adminEls.loginForm.querySelector('button[type="submit"]');
+  adminEls.loginMessage.textContent = "驗證管理密碼中…";
+  if (submitBtn) submitBtn.disabled = true;
+
+  try {
+    await validateAdminLogin(password);
+    enterDashboard();
+  } catch (error) {
+    adminEls.loginMessage.textContent = error.message;
+    adminEls.dashboardPanel.classList.add("hidden");
+    adminEls.loginPanel.classList.remove("hidden");
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
 });
 
 adminEls.refreshBtn.addEventListener("click", () => {

@@ -232,7 +232,14 @@ async function runOcr() {
     const response = await fetch(webhook, { method: "POST", body: form });
     const responseText = await response.text();
     if (!response.ok) {
-      throw new Error(responseText || `OCR webhook failed: ${response.status}`);
+      let message = responseText;
+      try {
+        const errorPayload = JSON.parse(responseText);
+        message = errorPayload.message || errorPayload.error || responseText;
+      } catch (error) {
+        // Keep the raw webhook body when it is not JSON.
+      }
+      throw new Error(message || `OCR webhook failed: ${response.status}`);
     }
 
     let payload;
@@ -247,7 +254,7 @@ async function runOcr() {
     els.batchStatus.textContent = "成功";
     renderResults();
   } catch (error) {
-    els.batchStatus.textContent = "失敗";
+    els.batchStatus.textContent = error.message || "失敗";
   } finally {
     setProcessing(false);
   }
