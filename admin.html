@@ -97,46 +97,53 @@
         <div id="tabStats" class="tab-stats"></div>
 
         <div id="dashboardView" class="admin-tab-view">
-          <p id="statsMessage" class="result-note">尚未載入，點上方「載入資料」或切換分頁時自動載入。</p>
+          <p id="statsMessage" class="result-note">&#x5C1A;&#x672A;&#x8F09;&#x5165;&#xFF0C;&#x8ACB;&#x5148;&#x9078;&#x64C7;&#x7BC4;&#x570D;&#x518D;&#x6309;&#x300C;&#x8F09;&#x5165;&#x8CC7;&#x6599;&#x300D;&#x3002;</p>
+
+          <section class="result-panel dashboard-summary-panel">
+            <div class="section-title">
+              <h3>&#x5100;&#x8868;&#x677F;&#x6458;&#x8981;</h3>
+            </div>
+            <div id="dashboardOverview" class="dashboard-overview"></div>
+          </section>
 
           <section class="result-panel">
             <div class="section-title">
-              <h3>每日趨勢</h3>
+              <h3>&#x6BCF;&#x65E5;&#x8DA8;&#x52E2;</h3>
             </div>
             <div id="trendChart" class="chart-shell"></div>
             <p class="chart-legend">
-              <span class="legend-dot bar"></span>每日筆數
-              <span class="legend-dot line"></span>正確率
+              <span class="legend-dot bar"></span>&#x6279;&#x6B21;&#x7B46;&#x6578;
+              <span class="legend-dot line"></span>&#x6B63;&#x78BA;&#x7387;
             </p>
           </section>
 
           <div class="analysis-grid">
             <section class="result-panel">
               <div class="section-title">
-                <h3>錯誤類型分布</h3>
+                <h3>&#x6700;&#x8FD1;&#x6279;&#x6B21;&#x7D00;&#x9304;</h3>
               </div>
-              <div id="errorTypeChart" class="bar-list"></div>
+              <div id="dashboardRecords" class="dashboard-record-list"></div>
             </section>
             <section class="result-panel">
               <div class="section-title">
-                <h3>問題品號排行</h3>
+                <h3>LINE &#x901A;&#x77E5;&#x72C0;&#x6CC1;</h3>
               </div>
-              <div id="problemParts" class="problem-list"></div>
+              <div id="notifyStatus" class="notify-grid"></div>
             </section>
           </div>
 
           <div class="analysis-grid">
             <section class="result-panel">
               <div class="section-title">
-                <h3>主檔涵蓋</h3>
+                <h3>&#x4E3B;&#x6A94;&#x8986;&#x84CB;</h3>
               </div>
               <div id="masterCoverage" class="notify-grid"></div>
             </section>
             <section class="result-panel">
               <div class="section-title">
-                <h3>LINE 通知狀況</h3>
+                <h3>&#x660E;&#x7D30;&#x5206;&#x6790;</h3>
               </div>
-              <div id="notifyStatus" class="notify-grid"></div>
+              <div id="detailAnalysisNote" class="result-note">&#x660E;&#x7D30;&#x5206;&#x6790;&#x53EA;&#x5728;&#x300C;&#x539F;&#x59CB;&#x8CC7;&#x6599;&#x300D;&#x8F09;&#x5165;&#x5F8C;&#x986F;&#x793A;&#xFF0C;&#x5100;&#x8868;&#x677F;&#x4E0D;&#x9810;&#x8A2D;&#x8B80;&#x53D6; OCR &#x660E;&#x7D30;&#x3002;</div>
             </section>
           </div>
         </div>

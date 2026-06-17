@@ -574,6 +574,14 @@ th {
   padding: 18px;
 }
 
+.admin-workspace,
+.admin-dashboard,
+.admin-tab-view,
+.analysis-grid,
+.result-panel {
+  min-width: 0;
+}
+
 .admin-login-panel {
   align-self: start;
   max-width: 460px;
@@ -654,6 +662,56 @@ th {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
+}
+
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-record-list {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.dashboard-record strong,
+.dashboard-record span {
+  display: block;
+}
+
+.dashboard-record span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dashboard-record-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 10px;
+  align-items: center;
+  text-align: right;
+}
+
+.dashboard-record-metrics .ok,
+.dashboard-record-metrics strong {
+  color: var(--ok);
+}
+
+.dashboard-record-metrics .danger {
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .analysis-grid {
@@ -1527,6 +1585,11 @@ th {
     flex-direction: column;
   }
 
+  .admin-page .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .topbar-actions {
     width: 100%;
     display: grid;
@@ -1552,8 +1615,26 @@ th {
     gap: 8px;
   }
 
-  .admin-page .topbar-actions {
+  .dashboard-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-record {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .dashboard-record-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    text-align: left;
+  }
+
+  .admin-page .topbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-left: 0;
   }
 
   .upload-choice-grid {

@@ -77,6 +77,9 @@ const adminEls = {
   operatorList: document.querySelector("#operatorList"),
   recentBody: document.querySelector("#recentBody"),
   statsMessage: document.querySelector("#statsMessage"),
+  dashboardOverview: document.querySelector("#dashboardOverview"),
+  dashboardRecords: document.querySelector("#dashboardRecords"),
+  detailAnalysisNote: document.querySelector("#detailAnalysisNote"),
   trendChart: document.querySelector("#trendChart"),
   errorTypeChart: document.querySelector("#errorTypeChart"),
   problemParts: document.querySelector("#problemParts"),
@@ -438,6 +441,55 @@ function buildNotify(notify) {
   `).join("");
 }
 
+function renderDashboardOverview(summary) {
+  const cards = [
+    { label: "\u4eca\u65e5\u6279\u6b21", value: summary.todayBatches },
+    { label: "\u7bc4\u570d\u6279\u6b21", value: summary.totalBatches },
+    { label: "\u7e3d\u7b46\u6578", value: summary.totalItems },
+    { label: "\u901a\u904e\u7b46\u6578", value: summary.passedItems, tone: "ok" },
+    { label: "\u7570\u5e38\u7b46\u6578", value: summary.abnormalItems, tone: "danger" },
+    { label: "\u5931\u6557\u6279\u6b21", value: summary.failedBatches, tone: summary.failedBatches ? "danger" : "" },
+    { label: "\u5e73\u5747\u79d2\u6578", value: `${summary.avgProcessingSeconds}s` },
+    { label: "\u6b63\u78ba\u7387", value: formatPercent(summary.accuracyRate), tone: "ok" },
+  ];
+
+  adminEls.dashboardOverview.innerHTML = cards.map((card) => `
+    <div class="metric ${card.tone || ""}">
+      <span>${escapeHtml(card.label)}</span>
+      <strong>${escapeHtml(card.value)}</strong>
+    </div>
+  `).join("");
+}
+
+function renderDashboardRecords(records) {
+  if (!records.length) {
+    adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u5c1a\u7121\u6700\u8fd1\u6279\u6b21\u7d00\u9304</p>';
+    return;
+  }
+
+  adminEls.dashboardRecords.innerHTML = records.slice(0, 20).map((batch) => {
+    const total = toNumber(batch.total);
+    const passed = toNumber(batch.passed);
+    const abnormal = toNumber(batch.abnormal);
+    const accuracy = batch.accuracy ?? (total ? passed / total : 0);
+    const statusTone = abnormal ? "danger" : "ok";
+    return `
+      <article class="dashboard-record">
+        <div>
+          <strong>${escapeHtml(batch.batchId || "\u672a\u547d\u540d\u6279\u6b21")}</strong>
+          <span>${escapeHtml(formatTime(batch.time || ""))}</span>
+        </div>
+        <div class="dashboard-record-metrics">
+          <span>\u7e3d ${total}</span>
+          <span>\u901a\u904e ${passed}</span>
+          <span class="${statusTone}">\u7570\u5e38 ${abnormal}</span>
+          <strong>${formatPercent(accuracy)}</strong>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderDashboard(payload) {
   const data = normalizeStats(payload);
 
@@ -445,9 +497,11 @@ function renderDashboard(payload) {
     adminState.masterCoverage = data.masterCoverage;
   }
 
+  renderDashboardOverview(data.summary);
+  renderDashboardRecords(data.recent);
   adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
-  adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
-  adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
+  if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
+  if (adminEls.problemParts) adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
   adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
   renderMasterCoverage();
   renderTabStats(adminState.activeTab);
@@ -919,9 +973,11 @@ function enterDashboard() {
   adminState.masterCoverage = null;
   adminState.selectedOperator = "";
   adminEls.statsMessage.textContent = "尚未載入，請先選擇範圍再按「載入資料」。";
+  adminEls.dashboardOverview.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
+  adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   adminEls.trendChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
-  adminEls.errorTypeChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
-  adminEls.problemParts.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.problemParts) adminEls.problemParts.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.notifyStatus.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.masterCoverage.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.operatorSelect.innerHTML = '<option value="">全部人員</option>';
