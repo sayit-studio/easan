@@ -1450,6 +1450,51 @@ th {
     padding-bottom: 0;
   }
 
+  .admin-page .table-wrap {
+    border: 1px solid var(--line);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-page table {
+    display: table;
+    min-width: 760px;
+    background: var(--surface);
+  }
+
+  .admin-page thead {
+    display: table-header-group;
+  }
+
+  .admin-page tbody {
+    display: table-row-group;
+  }
+
+  .admin-page tr {
+    display: table-row;
+  }
+
+  .admin-page th,
+  .admin-page td {
+    display: table-cell;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
+  }
+
+  .admin-page td::before {
+    content: none;
+  }
+
+  .admin-page .tab-stats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-page .stat-chip {
+    flex: 0 0 auto;
+  }
+
   .operator-card,
   .operator-stats {
     align-items: stretch;

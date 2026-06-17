@@ -2,7 +2,7 @@ const adminState = {
   password: "",
   range: "30",
   data: null,
-  activeTab: "stats",
+  activeTab: "dashboard",
   permissions: [],
   masterImportResult: null,
   self: { userId: "", name: "管理員", features: [], role: "", identified: false },
@@ -200,6 +200,7 @@ async function readJsonResponse(response, fallbackMessage) {
 
 async function fetchStats() {
   const webhook = ADMIN_CONFIG.statsWebhook;
+  const view = adminState.activeTab === "raw" ? "raw" : "summary";
 
   const response = await fetch(webhook, {
     method: "POST",
@@ -207,6 +208,8 @@ async function fetchStats() {
     body: JSON.stringify({
       password: adminState.password,
       range: adminState.range,
+      view,
+      includeDetails: view === "raw",
     }),
   });
 
@@ -303,6 +306,7 @@ function normalizeStats(payload) {
     ocrStatus: payload.ocrStatus || payload.ocr_status || [],
     problemParts: payload.problemParts || payload.problem_parts || [],
     notify: payload.notify || [],
+    masterCoverage: payload.masterCoverage || payload.master_coverage || payload.categoryCounts || null,
     details: payload.details || [],
   };
 }
@@ -413,11 +417,20 @@ function buildNotify(notify) {
 function renderDashboard(payload) {
   const data = normalizeStats(payload);
 
+  if (data.masterCoverage) {
+    adminState.masterCoverage = data.masterCoverage;
+  }
+
   adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
   adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
   adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
   adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
   renderMasterCoverage();
+  renderTabStats(adminState.activeTab);
+}
+
+function renderRawData(payload) {
+  const data = normalizeStats(payload);
 
   adminState.detailsByBatch = new Map();
   for (const row of data.details) {
@@ -765,6 +778,9 @@ async function loadStats() {
   adminState.data = payload;
   adminState.statsLoaded = true;
   renderDashboard(payload);
+  if (adminState.activeTab === "raw") {
+    renderRawData(payload);
+  }
   adminEls.statsMessage.textContent = `已更新（範圍：${rangeLabel(adminState.range)}）`;
 }
 
@@ -867,6 +883,7 @@ function backToLogin(message) {
 function enterDashboard() {
   adminState.password = adminEls.adminPasswordInput.value;
   adminState.range = adminEls.rangeInput.value;
+  adminState.data = null;
   adminState.statsLoaded = false;
   adminState.permsLoaded = false;
   adminState.permissions = [];
@@ -877,15 +894,22 @@ function enterDashboard() {
   adminEls.loginMessage.textContent = "";
   adminState.masterCoverage = null;
   adminState.selectedOperator = "";
-  adminEls.statsMessage.textContent = "尚未載入，點上方「載入資料」或切換分頁時自動載入。";
+  adminEls.statsMessage.textContent = "尚未載入，請先選擇範圍再按「載入資料」。";
+  adminEls.trendChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.errorTypeChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.problemParts.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.notifyStatus.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.masterCoverage.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.operatorSelect.innerHTML = '<option value="">全部人員</option>';
+  adminEls.operatorList.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  adminEls.operatorDetail.innerHTML = "";
+  adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="9">請選擇範圍後按重新載入</td></tr>';
   applyPermissionGate();
   setActiveTab("dashboard");
 }
 
 function openDashboard() {
   setActiveTab("dashboard");
-  if (!adminState.statsLoaded) loadStatsSafe();
-  if (!adminState.masterCoverage) loadMasterCoverageSafe();
 }
 
 adminEls.loginForm.addEventListener("submit", (event) => {
@@ -903,7 +927,6 @@ adminEls.refreshBtn.addEventListener("click", () => {
   } else {
     adminState.statsLoaded = false;
     loadStatsSafe();
-    loadMasterCoverageSafe();
   }
 });
 
@@ -911,7 +934,7 @@ adminEls.rangeInput.addEventListener("change", () => {
   adminState.range = adminEls.rangeInput.value;
   if (adminState.activeTab === "dashboard" || adminState.activeTab === "raw") {
     adminState.statsLoaded = false;
-    loadStatsSafe();
+    adminEls.statsMessage.textContent = "日期範圍已變更，請按重新載入";
   }
 });
 
@@ -919,7 +942,6 @@ adminEls.dashTabBtn.addEventListener("click", openDashboard);
 
 adminEls.rawTabBtn.addEventListener("click", () => {
   setActiveTab("raw");
-  if (!adminState.statsLoaded) loadStatsSafe();
 });
 
 adminEls.masterTabBtn.addEventListener("click", () => {
@@ -928,7 +950,6 @@ adminEls.masterTabBtn.addEventListener("click", () => {
 
 adminEls.permissionsTabBtn.addEventListener("click", () => {
   setActiveTab("permissions");
-  if (!adminState.permsLoaded) loadPermissionsSafe();
 });
 
 adminEls.masterImportTabBtn.addEventListener("click", () => {
