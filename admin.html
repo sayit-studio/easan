@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="admin-page">
+  <div id="loadingOverlay" class="loading-overlay hidden" role="alertdialog" aria-modal="true" aria-live="assertive" aria-labelledby="loadingTitle">
+    <div class="loading-dialog">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <div>
+        <h2 id="loadingTitle">&#x8F09;&#x5165;&#x4E2D;</h2>
+        <p id="loadingMessage">&#x8ACB;&#x52FF;&#x95DC;&#x9589;&#x8996;&#x7A97;&#x6216;&#x96E2;&#x958B;&#x9801;&#x9762;&#x3002;</p>
+      </div>
+    </div>
+  </div>
   <div class="mobile-header">
     <div class="brand compact">
       <div class="brand-mark">昱</div>
@@ -61,8 +70,8 @@
           <label id="rangeField" class="topbar-range hidden">
             統計範圍
             <select id="rangeInput">
-              <option value="7">近 7 天</option>
-              <option value="30" selected>近 30 天</option>
+              <option value="7" selected>近 7 天</option>
+              <option value="30">近 30 天</option>
               <option value="all">全部</option>
             </select>
           </label>
@@ -94,7 +103,7 @@
           <button id="permissionsTabBtn" class="admin-tab hidden" type="button" data-tab="permissions">人員權限</button>
         </div>
 
-        <div id="tabStats" class="tab-stats"></div>
+        <div id="tabStats" class="tab-stats hidden"></div>
 
         <div id="dashboardView" class="admin-tab-view">
           <p id="statsMessage" class="result-note">&#x5C1A;&#x672A;&#x8F09;&#x5165;&#xFF0C;&#x8ACB;&#x5148;&#x9078;&#x64C7;&#x7BC4;&#x570D;&#x518D;&#x6309;&#x300C;&#x8F09;&#x5165;&#x8CC7;&#x6599;&#x300D;&#x3002;</p>
@@ -112,10 +121,24 @@
             </div>
             <div id="trendChart" class="chart-shell"></div>
             <p class="chart-legend">
-              <span class="legend-dot bar"></span>&#x6279;&#x6B21;&#x7B46;&#x6578;
-              <span class="legend-dot line"></span>&#x6B63;&#x78BA;&#x7387;
+              <span class="legend-dot line"></span>&#x6383;&#x63CF;&#x7B46;&#x6578;
             </p>
           </section>
+
+          <div class="analysis-grid">
+            <section class="result-panel">
+              <div class="section-title">
+                <h3>&#x4EBA;&#x54E1;&#x6B63;&#x78BA;&#x7387;</h3>
+              </div>
+              <div id="operatorAccuracyChart" class="chart-shell"></div>
+            </section>
+            <section class="result-panel">
+              <div class="section-title">
+                <h3>&#x6BCF;&#x65E5;&#x9A57;&#x8B49;&#x6B21;&#x6578;</h3>
+              </div>
+              <div id="validationChart" class="chart-shell"></div>
+            </section>
+          </div>
 
           <div class="analysis-grid">
             <section class="result-panel">
@@ -141,9 +164,9 @@
             </section>
             <section class="result-panel">
               <div class="section-title">
-                <h3>&#x660E;&#x7D30;&#x5206;&#x6790;</h3>
+                <h3>&#x7570;&#x5E38;&#x985E;&#x578B;</h3>
               </div>
-              <div id="detailAnalysisNote" class="result-note">&#x660E;&#x7D30;&#x5206;&#x6790;&#x53EA;&#x5728;&#x300C;&#x539F;&#x59CB;&#x8CC7;&#x6599;&#x300D;&#x8F09;&#x5165;&#x5F8C;&#x986F;&#x793A;&#xFF0C;&#x5100;&#x8868;&#x677F;&#x4E0D;&#x9810;&#x8A2D;&#x8B80;&#x53D6; OCR &#x660E;&#x7D30;&#x3002;</div>
+              <div id="errorTypeChart" class="chart-shell"></div>
             </section>
           </div>
         </div>

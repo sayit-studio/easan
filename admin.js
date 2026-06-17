@@ -1,6 +1,6 @@
 const adminState = {
   password: "",
-  range: "30",
+  range: "7",
   data: null,
   activeTab: "dashboard",
   permissions: [],
@@ -10,6 +10,7 @@ const adminState = {
   permsLoaded: false,
   masterCoverage: null,
   selectedOperator: "",
+  loadingCount: 0,
 };
 
 const ADMIN_CONFIG = {
@@ -80,10 +81,14 @@ const adminEls = {
   dashboardOverview: document.querySelector("#dashboardOverview"),
   dashboardRecords: document.querySelector("#dashboardRecords"),
   detailAnalysisNote: document.querySelector("#detailAnalysisNote"),
+  operatorAccuracyChart: document.querySelector("#operatorAccuracyChart"),
+  validationChart: document.querySelector("#validationChart"),
   trendChart: document.querySelector("#trendChart"),
   errorTypeChart: document.querySelector("#errorTypeChart"),
   problemParts: document.querySelector("#problemParts"),
   notifyStatus: document.querySelector("#notifyStatus"),
+  loadingOverlay: document.querySelector("#loadingOverlay"),
+  loadingMessage: document.querySelector("#loadingMessage"),
 };
 
 function toNumber(value) {
@@ -102,6 +107,30 @@ function escapeHtml(value) {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function showLoading(message) {
+  adminState.loadingCount += 1;
+  if (adminEls.loadingMessage) {
+    adminEls.loadingMessage.textContent = message || "\u8acb\u52ff\u95dc\u9589\u8996\u7a97\u6216\u96e2\u958b\u9801\u9762\u3002";
+  }
+  adminEls.loadingOverlay?.classList.remove("hidden");
+}
+
+function hideLoading() {
+  adminState.loadingCount = Math.max(0, adminState.loadingCount - 1);
+  if (adminState.loadingCount === 0) {
+    adminEls.loadingOverlay?.classList.add("hidden");
+  }
+}
+
+async function withLoading(message, task) {
+  showLoading(message);
+  try {
+    return await task();
+  } finally {
+    hideLoading();
+  }
 }
 
 function featureList(value) {
@@ -148,7 +177,13 @@ function statChip(label, value, tone) {
 
 function renderTabStats(tab) {
   const el = adminEls.tabStats;
-  if (tab === "dashboard" || tab === "raw") {
+  if (tab === "dashboard") {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  if (tab === "raw") {
     const d = adminState.data ? normalizeStats(adminState.data) : null;
     if (!d) { el.innerHTML = `<div class="stat-chip"><span>狀態</span><strong>尚未載入</strong></div>`; return; }
     const s = d.summary;
@@ -344,51 +379,99 @@ function formatNumber(value) {
 
 function buildTrendChart(daily) {
   if (!daily.length) {
-    return '<p class="result-note">尚無趨勢資料</p>';
+    return '<p class="result-note">\u5c1a\u7121\u8da8\u52e2\u8cc7\u6599</p>';
   }
-  const rows = daily.slice(-30);
-  const W = Math.max(rows.length * 38, 320);
-  const H = 200;
-  const padX = 30;
-  const padTop = 16;
-  const padBottom = 34;
-  const plotH = H - padTop - padBottom;
-  const maxTotal = Math.max(1, ...rows.map((d) => toNumber(d.total)));
-  const step = rows.length > 1 ? (W - padX * 2) / (rows.length - 1) : 0;
-  const barW = Math.min(24, Math.max(8, (rows.length > 1 ? step : W - padX * 2) * 0.5));
 
-  const bars = rows.map((d, i) => {
-    const x = rows.length > 1 ? padX + step * i : W / 2;
-    const h = (toNumber(d.total) / maxTotal) * plotH;
-    const y = padTop + plotH - h;
-    return `<rect x="${(x - barW / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="3" class="trend-bar"><title>${escapeHtml(d.date)}：${toNumber(d.total)} 筆</title></rect>`;
-  }).join("");
+  const rows = daily.slice(-7);
+  const W = 320;
+  const H = 120;
+  const padX = 18;
+  const padTop = 14;
+  const padBottom = 24;
+  const plotH = H - padTop - padBottom;
+  const step = rows.length > 1 ? (W - padX * 2) / (rows.length - 1) : 0;
+  const maxTotal = Math.max(1, ...rows.map((d) => toNumber(d.total)));
 
   const points = rows.map((d, i) => {
     const x = rows.length > 1 ? padX + step * i : W / 2;
-    const acc = Math.max(0, Math.min(1, toNumber(d.accuracy)));
-    const y = padTop + plotH - acc * plotH;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    const y = padTop + plotH - (toNumber(d.total) / maxTotal) * plotH;
+    return { x, y, row: d };
   });
-  const line = rows.length > 1
-    ? `<polyline points="${points.join(" ")}" class="trend-line" fill="none" />`
-    : "";
-  const dots = rows.map((d, i) => {
-    const x = rows.length > 1 ? padX + step * i : W / 2;
-    const acc = Math.max(0, Math.min(1, toNumber(d.accuracy)));
-    const y = padTop + plotH - acc * plotH;
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="trend-dot"><title>${escapeHtml(d.date)}：正確率 ${formatPercent(d.accuracy)}</title></circle>`;
-  }).join("");
 
-  const labelEvery = Math.ceil(rows.length / 8);
-  const labels = rows.map((d, i) => {
-    if (i % labelEvery !== 0 && i !== rows.length - 1) return "";
-    const x = rows.length > 1 ? padX + step * i : W / 2;
-    const short = String(d.date).slice(5);
-    return `<text x="${x.toFixed(1)}" y="${H - 12}" class="trend-label" text-anchor="middle">${escapeHtml(short)}</text>`;
-  }).join("");
+  const areaPath = points.length
+    ? `M ${points.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' L ')} L ${points[points.length - 1].x.toFixed(1)} ${(H - padBottom).toFixed(1)} L ${points[0].x.toFixed(1)} ${(H - padBottom).toFixed(1)} Z`
+    : '';
+  const linePoints = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const dots = points.map((p) => `
+    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" class="trend-dot">
+      <title>${escapeHtml(p.row.date)}: ${toNumber(p.row.total)} \u7b46, \u6b63\u78ba\u7387 ${formatPercent(p.row.accuracy)}</title>
+    </circle>
+  `).join('');
+  const labels = points.map((p, i) => {
+    if (rows.length > 4 && i % 2 !== 0 && i !== rows.length - 1) return '';
+    return `<text x="${p.x.toFixed(1)}" y="${H - 7}" class="trend-label" text-anchor="middle">${escapeHtml(String(p.row.date).slice(5))}</text>`;
+  }).join('');
 
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="trend-svg" role="img" aria-label="每日趨勢圖">${bars}${line}${dots}${labels}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" class="trend-svg compact-trend-svg" role="img" aria-label="\u6bcf\u65e5\u8da8\u52e2\u5716"><path d="${areaPath}" class="trend-area"></path><polyline points="${linePoints}" class="trend-line" fill="none"></polyline>${dots}${labels}</svg>`;
+}
+
+function buildValidationChart(daily) {
+  const rows = (daily || []).slice(-7);
+  if (!rows.length) {
+    return '<p class="result-note">\u5c1a\u7121\u9a57\u8b49\u6b21\u6578\u8cc7\u6599</p>';
+  }
+  const max = Math.max(1, ...rows.map((d) => toNumber(d.batches)));
+  return `
+    <div class="mini-bar-chart">
+      ${rows.map((d) => {
+        const count = toNumber(d.batches);
+        const height = Math.max(6, (count / max) * 100);
+        return `
+          <div class="mini-bar-item">
+            <span class="mini-bar-value">${count}</span>
+            <span class="mini-bar-track"><span class="mini-bar-fill" style="height:${height.toFixed(1)}%"></span></span>
+            <span class="mini-bar-label">${escapeHtml(String(d.date || "").slice(5))}</span>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function buildOperatorAccuracyChart(operators) {
+  const rows = (operators || [])
+    .map((op) => {
+      const total = toNumber(op.total);
+      const accuracy = op.accuracy ?? (total ? toNumber(op.passed) / total : 0);
+      return {
+        name: opDisplay(op),
+        total,
+        accuracy: toNumber(accuracy),
+      };
+    })
+    .filter((op) => op.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
+  if (!rows.length) {
+    return '<p class="result-note">\u5c1a\u7121\u4eba\u54e1\u6b63\u78ba\u7387\u8cc7\u6599</p>';
+  }
+
+  return rows.map((op) => {
+    const pct = op.accuracy <= 1 ? op.accuracy * 100 : op.accuracy;
+    return `
+      <div class="accuracy-row">
+        <div class="accuracy-title">
+          <strong>${escapeHtml(op.name)}</strong>
+          <span>${op.total} \u7b46</span>
+        </div>
+        <div class="accuracy-track">
+          <span class="accuracy-fill" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></span>
+        </div>
+        <strong class="accuracy-value">${formatPercent(op.accuracy)}</strong>
+      </div>
+    `;
+  }).join("");
 }
 
 function buildBarList(items, tone) {
@@ -500,6 +583,8 @@ function renderDashboard(payload) {
   renderDashboardOverview(data.summary);
   renderDashboardRecords(data.recent);
   adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
+  if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = buildOperatorAccuracyChart(data.operators);
+  if (adminEls.validationChart) adminEls.validationChart.innerHTML = buildValidationChart(data.daily);
   if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
   if (adminEls.problemParts) adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
   adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
@@ -810,7 +895,7 @@ function renderMasterImportResult(payload) {
 
 async function loadPermissions() {
   adminEls.permissionMessage.textContent = "讀取人員權限中...";
-  const payload = await fetchPermissions("list");
+  const payload = await withLoading("讀取人員權限中，請勿關閉視窗。", () => fetchPermissions("list"));
   renderPermissions(payload.operators || []);
 }
 
@@ -852,7 +937,7 @@ async function initAdminIdentity() {
 
 async function loadStats() {
   adminEls.statsMessage.textContent = "讀取統計資料中...";
-  const payload = await fetchStats();
+  const payload = await withLoading("讀取統計資料中，請勿關閉視窗。", fetchStats);
   adminState.data = payload;
   adminState.statsLoaded = true;
   renderDashboard(payload);
@@ -876,6 +961,7 @@ function loadPermissionsSafe() {
   loadPermissions().catch((error) => {
     adminState.permsLoaded = false;
     adminEls.permissionMessage.textContent = error.message;
+    if (/密碼|權限|403/.test(error.message)) backToLogin(error.message);
   });
 }
 
@@ -936,7 +1022,7 @@ function renderMasterItems(payload, category) {
 function queryMaster() {
   const category = adminEls.masterFilterCategory.value;
   adminEls.masterQueryMessage.textContent = "查詢中…";
-  masterQueryRequest({ action: "query", category })
+  withLoading("查詢品項主檔中，請勿關閉視窗。", () => masterQueryRequest({ action: "query", category }))
     .then((payload) => renderMasterItems(payload, category))
     .catch((error) => {
       adminEls.masterQueryMessage.textContent = error.message;
@@ -976,6 +1062,8 @@ function enterDashboard() {
   adminEls.dashboardOverview.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   adminEls.trendChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
+  if (adminEls.validationChart) adminEls.validationChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   if (adminEls.problemParts) adminEls.problemParts.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.notifyStatus.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
@@ -1000,7 +1088,7 @@ adminEls.loginForm.addEventListener("submit", async (event) => {
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    await validateAdminLogin(password);
+    await withLoading("驗證管理密碼中，請勿關閉視窗。", () => validateAdminLogin(password));
     enterDashboard();
   } catch (error) {
     adminEls.loginMessage.textContent = error.message;
@@ -1077,7 +1165,7 @@ adminEls.masterItemsBody.addEventListener("click", (event) => {
   const newStatus = row.querySelector(".master-status").value;
   button.disabled = true;
   button.textContent = "儲存中";
-  masterQueryRequest({ action: "update", pageId, newCategory, newStatus })
+  withLoading("儲存品項設定中，請勿關閉視窗。", () => masterQueryRequest({ action: "update", pageId, newCategory, newStatus }))
     .then((payload) => {
       renderMasterItems(payload, adminEls.masterFilterCategory.value);
       adminEls.masterQueryMessage.textContent = "已更新分類/狀態";
@@ -1094,6 +1182,7 @@ adminEls.masterItemsBody.addEventListener("click", (event) => {
 adminEls.permissionsRefreshBtn.addEventListener("click", () => {
   loadPermissions().catch((error) => {
     adminEls.permissionMessage.textContent = error.message;
+    if (/密碼|權限|403/.test(error.message)) backToLogin(error.message);
   });
 });
 
@@ -1111,7 +1200,7 @@ adminEls.masterImportForm.addEventListener("submit", (event) => {
   adminEls.masterImportBtn.textContent = mode === "import" ? "匯入中" : "檢查中";
   adminEls.masterImportMessage.textContent = mode === "import" ? "正在匯入主檔..." : "正在預覽檢查主檔...";
 
-  submitMasterImport(mode, file, category)
+  withLoading(mode === "import" ? "匯入主檔中，請勿關閉視窗。" : "檢查主檔中，請勿關閉視窗。", () => submitMasterImport(mode, file, category))
     .then((payload) => {
       renderMasterImportResult(payload);
       adminEls.masterImportMessage.textContent = mode === "import" ? "主檔匯入完成" : "主檔預覽完成";
@@ -1147,13 +1236,14 @@ adminEls.permissionList.addEventListener("click", (event) => {
 
   button.disabled = true;
   button.textContent = "儲存中";
-  fetchPermissions("update", { pageId, status, role, features, nickname, approver })
+  withLoading("儲存人員權限中，請勿關閉視窗。", () => fetchPermissions("update", { pageId, status, role, features, nickname, approver }))
     .then((payload) => {
       renderPermissions(payload.operators || []);
       adminEls.permissionMessage.textContent = "權限已更新";
     })
     .catch((error) => {
       adminEls.permissionMessage.textContent = error.message;
+      if (/密碼|權限|403/.test(error.message)) backToLogin(error.message);
     })
     .finally(() => {
       button.disabled = false;
@@ -1200,6 +1290,12 @@ adminEls.mobileMenu?.addEventListener("click", (event) => {
     adminEls.mobileMenuBtn.classList.remove("active");
     adminEls.mobileMenuBtn.setAttribute("aria-expanded", "false");
   }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (adminState.loadingCount <= 0) return;
+  event.preventDefault();
+  event.returnValue = "";
 });
 
 initAdminIdentity();
