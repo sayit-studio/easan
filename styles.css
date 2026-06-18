@@ -38,7 +38,8 @@ select {
 
 .mobile-header,
 .mobile-action-bar,
-.mobile-menu {
+.mobile-menu,
+.inline-mobile-action {
   display: none;
 }
 
@@ -1690,6 +1691,13 @@ th {
 
   .desktop-action {
     display: none;
+  }
+
+  .inline-mobile-action {
+    width: 100%;
+    display: block;
+    min-height: 48px;
+    margin-top: 12px;
   }
 
   .mobile-action-bar {

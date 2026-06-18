@@ -25,6 +25,7 @@ const els = {
   imagePreview: document.querySelector("#imagePreview"),
   runOcrBtn: document.querySelector("#runOcrBtn"),
   mobileRunOcrBtn: document.querySelector("#mobileRunOcrBtn"),
+  inlineMobileRunOcrBtn: document.querySelector("#inlineMobileRunOcrBtn"),
   resultBody: document.querySelector("#resultBody"),
   totalCount: document.querySelector("#totalCount"),
   passedCount: document.querySelector("#passedCount"),
@@ -56,7 +57,8 @@ function renderInputState() {
   els.cameraInput.disabled = !canChooseImage;
   els.fileInput.disabled = !canChooseImage;
   els.runOcrBtn.disabled = !canRunOcr;
-  els.mobileRunOcrBtn.disabled = !canRunOcr;
+  if (els.mobileRunOcrBtn) els.mobileRunOcrBtn.disabled = !canRunOcr;
+  if (els.inlineMobileRunOcrBtn) els.inlineMobileRunOcrBtn.disabled = !canRunOcr;
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -293,7 +295,11 @@ els.runOcrBtn.addEventListener("click", () => {
   runOcr();
 });
 
-els.mobileRunOcrBtn.addEventListener("click", () => {
+els.mobileRunOcrBtn?.addEventListener("click", () => {
+  runOcr();
+});
+
+els.inlineMobileRunOcrBtn?.addEventListener("click", () => {
   runOcr();
 });
 
