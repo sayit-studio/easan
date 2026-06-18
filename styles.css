@@ -900,6 +900,87 @@ th {
   text-align: right;
 }
 
+.efficiency-row {
+  display: grid;
+  gap: 9px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.efficiency-row:last-child {
+  border-bottom: 0;
+}
+
+.efficiency-title,
+.efficiency-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.efficiency-title strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.efficiency-title span,
+.efficiency-meta span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.efficiency-title span {
+  flex: 0 0 auto;
+}
+
+.efficiency-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.efficiency-bars {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 54px;
+  gap: 7px;
+  align-items: center;
+}
+
+.efficiency-bars span,
+.efficiency-bars strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.efficiency-bars strong {
+  color: var(--text);
+  text-align: right;
+}
+
+.efficiency-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #edf2f7;
+  overflow: hidden;
+}
+
+.efficiency-fill {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+
+.efficiency-fill.workload {
+  background: var(--brand);
+}
+
+.efficiency-fill.success {
+  background: var(--ok);
+}
+
 .trend-label {
   fill: var(--muted);
   font-size: 11px;

@@ -345,6 +345,7 @@ function normalizeStats(payload) {
   const totalItems = toNumber(summary.total_items ?? summary.totalItems);
   const passedItems = toNumber(summary.passed_items ?? summary.passedItems);
   const abnormalItems = toNumber(summary.abnormal_items ?? summary.abnormalItems);
+  const operators = payload.operators || payload.operator_stats || [];
   const accuracyRate = summary.accuracy_rate ?? summary.accuracyRate ??
     (totalItems ? passedItems / totalItems : 0);
 
@@ -360,8 +361,9 @@ function normalizeStats(payload) {
       correctionRate: summary.correction_rate ?? summary.correctionRate ?? 0,
       ocrCompleteRate: summary.ocr_complete_rate ?? summary.ocrCompleteRate ?? 0,
       avgProcessingSeconds: toNumber(summary.avg_processing_seconds ?? summary.avgProcessingSeconds),
+      activeOperators: toNumber(summary.active_operators ?? summary.activeOperators) || operators.filter((op) => toNumber(op.total) > 0).length,
     },
-    operators: payload.operators || payload.operator_stats || [],
+    operators,
     recent: payload.recent || payload.recent_batches || [],
     daily: payload.daily || [],
     errorTypes: payload.errorTypes || payload.error_types || [],
@@ -439,14 +441,22 @@ function buildValidationChart(daily) {
 }
 
 function buildOperatorAccuracyChart(operators) {
+  const totalWork = Math.max(1, (operators || []).reduce((sum, op) => sum + toNumber(op.total), 0));
   const rows = (operators || [])
     .map((op) => {
       const total = toNumber(op.total);
+      const passed = toNumber(op.passed);
+      const abnormal = toNumber(op.abnormal);
       const accuracy = op.accuracy ?? (total ? toNumber(op.passed) / total : 0);
+      const avgSeconds = toNumber(op.avgProcessingSeconds ?? op.avg_processing_seconds);
       return {
         name: opDisplay(op),
         total,
+        passed,
+        abnormal,
         accuracy: toNumber(accuracy),
+        workload: total / totalWork,
+        avgSeconds,
       };
     })
     .filter((op) => op.total > 0)
@@ -458,17 +468,27 @@ function buildOperatorAccuracyChart(operators) {
   }
 
   return rows.map((op) => {
-    const pct = op.accuracy <= 1 ? op.accuracy * 100 : op.accuracy;
+    const accuracyPct = op.accuracy <= 1 ? op.accuracy * 100 : op.accuracy;
+    const workloadPct = op.workload * 100;
     return `
-      <div class="accuracy-row">
-        <div class="accuracy-title">
+      <div class="efficiency-row">
+        <div class="efficiency-title">
           <strong>${escapeHtml(op.name)}</strong>
           <span>${op.total} \u7b46</span>
         </div>
-        <div class="accuracy-track">
-          <span class="accuracy-fill" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></span>
+        <div class="efficiency-bars">
+          <span>\u5de5\u4f5c\u7387</span>
+          <div class="efficiency-track"><span class="efficiency-fill workload" style="width:${Math.max(0, Math.min(100, workloadPct)).toFixed(1)}%"></span></div>
+          <strong>${formatPercent(op.workload)}</strong>
+          <span>\u6210\u529f\u7387</span>
+          <div class="efficiency-track"><span class="efficiency-fill success" style="width:${Math.max(0, Math.min(100, accuracyPct)).toFixed(1)}%"></span></div>
+          <strong>${formatPercent(op.accuracy)}</strong>
         </div>
-        <strong class="accuracy-value">${formatPercent(op.accuracy)}</strong>
+        <div class="efficiency-meta">
+          <span>\u901a\u904e ${op.passed}</span>
+          <span>\u7570\u5e38 ${op.abnormal}</span>
+          <span>${op.avgSeconds ? `\u5e73\u5747 ${op.avgSeconds}s` : "\u672a\u8a18\u9304\u79d2\u6578"}</span>
+        </div>
       </div>
     `;
   }).join("");
@@ -527,13 +547,11 @@ function buildNotify(notify) {
 function renderDashboardOverview(summary) {
   const cards = [
     { label: "\u4eca\u65e5\u6279\u6b21", value: summary.todayBatches },
-    { label: "\u7bc4\u570d\u6279\u6b21", value: summary.totalBatches },
     { label: "\u7e3d\u7b46\u6578", value: summary.totalItems },
-    { label: "\u901a\u904e\u7b46\u6578", value: summary.passedItems, tone: "ok" },
     { label: "\u7570\u5e38\u7b46\u6578", value: summary.abnormalItems, tone: "danger" },
-    { label: "\u5931\u6557\u6279\u6b21", value: summary.failedBatches, tone: summary.failedBatches ? "danger" : "" },
-    { label: "\u5e73\u5747\u79d2\u6578", value: `${summary.avgProcessingSeconds}s` },
     { label: "\u6b63\u78ba\u7387", value: formatPercent(summary.accuracyRate), tone: "ok" },
+    { label: "\u5e73\u5747\u79d2\u6578", value: `${summary.avgProcessingSeconds}s` },
+    { label: "\u6d3b\u8e8d\u4eba\u54e1", value: summary.activeOperators || 0 },
   ];
 
   adminEls.dashboardOverview.innerHTML = cards.map((card) => `
@@ -546,10 +564,12 @@ function renderDashboardOverview(summary) {
 
 function renderDashboardRecords(records) {
   if (!records.length) {
+    if (!adminEls.dashboardRecords) return;
     adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u5c1a\u7121\u6700\u8fd1\u6279\u6b21\u7d00\u9304</p>';
     return;
   }
 
+  if (!adminEls.dashboardRecords) return;
   adminEls.dashboardRecords.innerHTML = records.slice(0, 20).map((batch) => {
     const total = toNumber(batch.total);
     const passed = toNumber(batch.passed);
@@ -581,7 +601,6 @@ function renderDashboard(payload) {
   }
 
   renderDashboardOverview(data.summary);
-  renderDashboardRecords(data.recent);
   adminEls.trendChart.innerHTML = buildTrendChart(data.daily);
   if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = buildOperatorAccuracyChart(data.operators);
   if (adminEls.validationChart) adminEls.validationChart.innerHTML = buildValidationChart(data.daily);
@@ -1060,7 +1079,7 @@ function enterDashboard() {
   adminState.selectedOperator = "";
   adminEls.statsMessage.textContent = "尚未載入，請先選擇範圍再按「載入資料」。";
   adminEls.dashboardOverview.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
-  adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
+  if (adminEls.dashboardRecords) adminEls.dashboardRecords.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   adminEls.trendChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   if (adminEls.validationChart) adminEls.validationChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
