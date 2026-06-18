@@ -79,6 +79,7 @@ const adminEls = {
   recentBody: document.querySelector("#recentBody"),
   statsMessage: document.querySelector("#statsMessage"),
   dashboardOverview: document.querySelector("#dashboardOverview"),
+  dashboardMajorRecords: document.querySelector("#dashboardMajorRecords"),
   dashboardRecords: document.querySelector("#dashboardRecords"),
   detailAnalysisNote: document.querySelector("#detailAnalysisNote"),
   operatorAccuracyChart: document.querySelector("#operatorAccuracyChart"),
@@ -544,6 +545,48 @@ function buildNotify(notify) {
   `).join("");
 }
 
+function buildMajorRecords(records) {
+  const rows = (records || [])
+    .map((record) => {
+      const total = toNumber(record.total);
+      const abnormal = toNumber(record.abnormal);
+      const status = String(record.status || "").trim();
+      const notify = String(record.notifyStatus || "").trim();
+      const important = abnormal > 0 || status === "\u5931\u6557" || /失敗|異常|未/.test(notify);
+      return { ...record, total, abnormal, status, notify, important };
+    })
+    .filter((record) => record.time || record.batchId)
+    .filter((record, index) => record.important || index < 5)
+    .slice(0, 8);
+
+  if (!rows.length) {
+    return '<p class="result-note">\u5c1a\u7121\u91cd\u5927\u7d00\u9304</p>';
+  }
+
+  return rows.map((record) => {
+    const tone = record.abnormal > 0 || record.status === "\u5931\u6557" ? "danger" : "ok";
+    const operator = record.operatorNick || record.operator || "\u672a\u8a18\u9304\u4eba\u54e1";
+    const action = record.status === "\u5931\u6557" ? "\u6279\u6b21\u5931\u6557" : "\u6279\u6b21\u5beb\u5165";
+    const content = [
+      `${action}: ${record.batchId || "\u672a\u547d\u540d"}`,
+      `\u64cd\u4f5c\u4eba ${operator}`,
+      `\u7e3d\u7b46\u6578 ${record.total}`,
+      record.abnormal ? `\u7570\u5e38 ${record.abnormal}` : "\u7121\u7570\u5e38",
+      record.notify ? `\u901a\u77e5 ${record.notify}` : "",
+    ].filter(Boolean).join(" / ");
+
+    return `
+      <article class="major-record ${tone}">
+        <time>${escapeHtml(formatTime(record.time || ""))}</time>
+        <div>
+          <strong>${escapeHtml(action)}</strong>
+          <span>${escapeHtml(content)}</span>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderDashboardOverview(summary) {
   const cards = [
     { label: "\u4eca\u65e5\u6279\u6b21", value: summary.todayBatches },
@@ -605,9 +648,9 @@ function renderDashboard(payload) {
   if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = buildOperatorAccuracyChart(data.operators);
   if (adminEls.validationChart) adminEls.validationChart.innerHTML = buildValidationChart(data.daily);
   if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = buildBarList(data.errorTypes, "danger");
+  if (adminEls.dashboardMajorRecords) adminEls.dashboardMajorRecords.innerHTML = buildMajorRecords(data.recent);
   if (adminEls.problemParts) adminEls.problemParts.innerHTML = buildProblemParts(data.problemParts);
   adminEls.notifyStatus.innerHTML = buildNotify(data.notify);
-  renderMasterCoverage();
   renderTabStats(adminState.activeTab);
 }
 
@@ -629,6 +672,7 @@ function renderRawData(payload) {
 
 function renderMasterCoverage() {
   const c = adminState.masterCoverage;
+  if (!adminEls.masterCoverage) return;
   if (!c) {
     adminEls.masterCoverage.innerHTML = '<p class="result-note">載入中…</p>';
     return;
@@ -1084,9 +1128,10 @@ function enterDashboard() {
   if (adminEls.operatorAccuracyChart) adminEls.operatorAccuracyChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   if (adminEls.validationChart) adminEls.validationChart.innerHTML = '<p class="result-note">\u8acb\u9078\u64c7\u7bc4\u570d\u5f8c\u6309\u91cd\u65b0\u8f09\u5165</p>';
   if (adminEls.errorTypeChart) adminEls.errorTypeChart.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.dashboardMajorRecords) adminEls.dashboardMajorRecords.innerHTML = '<p class="result-note">\u8acb\u8f09\u5165\u8cc7\u6599\u5f8c\u986f\u793a\u91cd\u5927\u7d00\u9304</p>';
   if (adminEls.problemParts) adminEls.problemParts.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
-  adminEls.notifyStatus.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
-  adminEls.masterCoverage.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.notifyStatus) adminEls.notifyStatus.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
+  if (adminEls.masterCoverage) adminEls.masterCoverage.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.operatorSelect.innerHTML = '<option value="">全部人員</option>';
   adminEls.operatorList.innerHTML = '<p class="result-note">請選擇範圍後按重新載入</p>';
   adminEls.operatorDetail.innerHTML = "";
