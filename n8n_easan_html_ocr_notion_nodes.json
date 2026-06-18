@@ -59,11 +59,12 @@
       "position": [
         -280,
         0
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "function getGeminiText(payload) {\n  for (const key of ['text', 'output', 'content', 'response', 'result', 'completion']) {\n    if (typeof payload[key] === 'string' && payload[key].trim()) return payload[key].trim();\n  }\n  if (typeof payload.message?.content === 'string') return payload.message.content.trim();\n  if (Array.isArray(payload.content?.parts)) {\n    const text = payload.content.parts.find((part) => typeof part.text === 'string')?.text;\n    if (text) return text.trim();\n  }\n  const text = payload.candidates?.[0]?.content?.parts?.find((part) => typeof part.text === 'string')?.text || '';\n  return text.trim();\n}\n\nfunction parseJsonText(rawText) {\n  if (!rawText) throw new Error('Gemini 未回傳文字內容');\n  try {\n    return JSON.parse(rawText);\n  } catch (error) {\n    const cleaned = rawText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();\n    try {\n      return JSON.parse(cleaned);\n    } catch (innerError) {\n      const match = rawText.match(/\\{[\\s\\S]*\\}/);\n      if (!match) throw new Error('Gemini 回傳非 JSON');\n      return JSON.parse(match[0]);\n    }\n  }\n}\n\nconst requestMeta = $('準備 Gemini 請求').first().json;\nconst ocr = parseJsonText(getGeminiText($json));\nconst items = Array.isArray(ocr.items) ? ocr.items : [];\nif (!items.length) throw new Error('OCR 結果沒有 items 明細');\n\nreturn [{\n  json: {\n    ocr,\n    operator: requestMeta.operator || {},\n    imageMeta: requestMeta.imageMeta || {},\n    startedAt: requestMeta.startedAt || '',\n    imageId: requestMeta.imageId || ''\n  }\n}];"
+        "jsCode": "function getGeminiText(payload) {\n  for (const key of ['text', 'output', 'content', 'response', 'result', 'completion']) {\n    if (typeof payload[key] === 'string' && payload[key].trim()) return payload[key].trim();\n  }\n  if (typeof payload.message?.content === 'string') return payload.message.content.trim();\n  if (Array.isArray(payload.content?.parts)) {\n    const text = payload.content.parts.find((part) => typeof part.text === 'string')?.text;\n    if (text) return text.trim();\n  }\n  const text = payload.candidates?.[0]?.content?.parts?.find((part) => typeof part.text === 'string')?.text || '';\n  return text.trim();\n}\n\nfunction parseJsonText(rawText) {\n  if (!rawText) throw new Error('Gemini \\u672a\\u56de\\u50b3\\u6587\\u5b57\\u5167\\u5bb9');\n  try {\n    return JSON.parse(rawText);\n  } catch (error) {\n    const cleaned = rawText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();\n    try {\n      return JSON.parse(cleaned);\n    } catch (innerError) {\n      const match = rawText.match(/\\{[\\s\\S]*\\}/);\n      if (!match) throw new Error('Gemini \\u56de\\u50b3\\u975e JSON');\n      return JSON.parse(match[0]);\n    }\n  }\n}\n\nfunction fallbackOcr(message) {\n  return {\n    total_detected_rows: 1,\n    order_no: '',\n    date: '',\n    items: [{\n      row_no: 1,\n      work_order_no: '',\n      part_no: '',\n      spec: '',\n      defective_qty: 0,\n      request_qty: 0,\n      received_qty: 0,\n      note: message || 'OCR \\u89e3\\u6790\\u5931\\u6557'\n    }]\n  };\n}\n\nconst requestMeta = $('\\u6e96\\u5099 Gemini \\u8acb\\u6c42').first().json;\nlet ocr;\ntry {\n  if ($json.error) {\n    const message = $json.error.message || $json.error.description || 'Gemini OCR \\u5206\\u6790\\u5931\\u6557';\n    ocr = fallbackOcr(message);\n  } else {\n    ocr = parseJsonText(getGeminiText($json));\n  }\n} catch (error) {\n  ocr = fallbackOcr(error.message || 'OCR \\u56de\\u50b3\\u89e3\\u6790\\u5931\\u6557');\n}\n\nconst items = Array.isArray(ocr.items) ? ocr.items : [];\nif (!items.length) {\n  ocr.items = fallbackOcr('OCR \\u7d50\\u679c\\u6c92\\u6709 items \\u660e\\u7d30').items;\n}\n\nreturn [{\n  json: {\n    ocr,\n    operator: requestMeta.operator || {},\n    imageMeta: requestMeta.imageMeta || {},\n    startedAt: requestMeta.startedAt || '',\n    imageId: requestMeta.imageId || ''\n  }\n}];"
       },
       "id": "b1d6e97f-0a1d-4b0a-a1d8-0000000000035",
       "name": "解析 OCR JSON",
@@ -96,7 +97,9 @@
       "position": [
         -20,
         0
-      ]
+      ],
+      "continueOnFail": true,
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -210,7 +213,8 @@
       "position": [
         460,
         0
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
@@ -342,11 +346,12 @@
       "position": [
         940,
         0
-      ]
+      ],
+      "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const compare = $('比對 OCR 與品項主檔').first().json;\nconst details = $('準備明細寫入資料').all().map((item) => item.json);\nconst createdPages = $input.all().map((item) => item.json);\n\nreturn [{\n  json: {\n    ok: true,\n    batchId: compare.batchId,\n    order_no: compare.order_no,\n    date: compare.date,\n    total: compare.total,\n    passed: compare.passed,\n    abnormal: compare.abnormal,\n    results: details.map((row, index) => ({\n      status: row.status,\n      partNo: row.partNo,\n      spec: row.spec,\n      defectiveQty: row.defectiveQty,\n      requestQty: row.requestQty,\n      receivedQty: row.receivedQty,\n      note: row.note,\n      notionUrl: createdPages[index]?.url || ''\n    }))\n  }\n}];"
+        "jsCode": "const compare = $('\\u6bd4\\u5c0d OCR \\u8207\\u54c1\\u9805\\u4e3b\\u6a94').first().json;\nconst details = $('\\u6e96\\u5099\\u660e\\u7d30\\u5beb\\u5165\\u8cc7\\u6599').all().map((item) => item.json || {});\nconst createdPages = $input.all().map((item) => item.json || {});\n\nreturn [{\n  json: {\n    ok: true,\n    batchId: compare.batchId,\n    order_no: compare.order_no,\n    date: compare.date,\n    total: compare.total,\n    passed: compare.passed,\n    abnormal: compare.abnormal,\n    results: details.map((row, index) => {\n      const created = createdPages[index] || {};\n      const writeError = created.error?.message || created.error || '';\n      return {\n        status: writeError ? '\\u7570\\u5e38' : row.status,\n        partNo: row.partNo,\n        spec: row.spec,\n        defectiveQty: row.defectiveQty,\n        requestQty: row.requestQty,\n        receivedQty: row.receivedQty,\n        note: writeError ? ((row.note || '') + '\\uff1bNotion \\u660e\\u7d30\\u5beb\\u5165\\u5931\\u6557\\uff1a' + writeError) : row.note,\n        notionUrl: created.url || ''\n      };\n    })\n  }\n}];"
       },
       "id": "b1d6e97f-0a1d-4b0a-a1d8-000000000009",
       "name": "整理回傳結果",
@@ -689,7 +694,7 @@
     "executionOrder": "v1",
     "saveManualExecutions": true
   },
-  "versionId": "notion-nodes-v1",
+  "versionId": "html-ocr-notion-v3-error-json",
   "meta": {
     "templateCredsSetupCompleted": false
   },
