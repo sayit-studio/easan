@@ -11,6 +11,8 @@ const adminState = {
   masterCoverage: null,
   selectedOperator: "",
   loadingCount: 0,
+  permissionAutoRefreshTimer: null,
+  permissionAutoRefreshing: false,
 };
 
 const ADMIN_CONFIG = {
@@ -174,6 +176,7 @@ function setActiveTab(tab) {
     adminEls[TAB_VIEW[t]].classList.toggle("hidden", t !== tab);
   }
   renderTabStats(tab);
+  syncPermissionAutoRefresh();
 }
 
 function statChip(label, value, tone) {
@@ -1037,6 +1040,40 @@ function loadPermissionsSafe() {
   });
 }
 
+async function loadPermissionsQuiet() {
+  if (!canManagePermissions() || adminState.activeTab !== "permissions" || adminState.permissionAutoRefreshing) return;
+  adminState.permissionAutoRefreshing = true;
+  try {
+    const payload = await fetchPermissions("list");
+    renderPermissions(payload.operators || []);
+    adminState.permsLoaded = true;
+    adminEls.permissionMessage.textContent = `已自動更新 ${new Date().toLocaleTimeString("zh-TW", { hour12: false })}`;
+  } catch (error) {
+    adminEls.permissionMessage.textContent = error.message;
+    if (/撖Ⅳ|甈?|403/.test(error.message)) backToLogin(error.message);
+  } finally {
+    adminState.permissionAutoRefreshing = false;
+  }
+}
+
+function stopPermissionAutoRefresh() {
+  if (!adminState.permissionAutoRefreshTimer) return;
+  clearInterval(adminState.permissionAutoRefreshTimer);
+  adminState.permissionAutoRefreshTimer = null;
+}
+
+function syncPermissionAutoRefresh() {
+  if (adminState.activeTab !== "permissions" || !canManagePermissions()) {
+    stopPermissionAutoRefresh();
+    return;
+  }
+  if (!adminState.permsLoaded) loadPermissionsSafe();
+  else loadPermissionsQuiet();
+  if (!adminState.permissionAutoRefreshTimer) {
+    adminState.permissionAutoRefreshTimer = setInterval(loadPermissionsQuiet, 15000);
+  }
+}
+
 async function masterQueryRequest(payload) {
   const response = await fetch(ADMIN_CONFIG.masterQueryWebhook, {
     method: "POST",
@@ -1109,6 +1146,7 @@ function rangeLabel(range) {
 }
 
 function backToLogin(message) {
+  stopPermissionAutoRefresh();
   adminEls.loginPanel.classList.remove("hidden");
   adminEls.dashboardPanel.classList.add("hidden");
   adminEls.rangeField.classList.add("hidden");
