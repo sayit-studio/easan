@@ -48,11 +48,13 @@ const adminEls = {
   masterTabBtn: document.querySelector("#masterTabBtn"),
   permissionsTabBtn: document.querySelector("#permissionsTabBtn"),
   masterImportTabBtn: document.querySelector("#masterImportTabBtn"),
+  changelogTabBtn: document.querySelector("#changelogTabBtn"),
   dashboardView: document.querySelector("#dashboardView"),
   rawView: document.querySelector("#rawView"),
   masterView: document.querySelector("#masterView"),
   permissionsView: document.querySelector("#permissionsView"),
   masterImportView: document.querySelector("#masterImportView"),
+  changelogView: document.querySelector("#changelogView"),
   operatorSelect: document.querySelector("#operatorSelect"),
   operatorDetail: document.querySelector("#operatorDetail"),
   masterQueryForm: document.querySelector("#masterQueryForm"),
@@ -147,12 +149,13 @@ function featureList(value) {
   return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
 }
 
-const TABS = ["dashboard", "raw", "master", "masterImport", "permissions"];
+const TABS = ["dashboard", "raw", "master", "masterImport", "changelog", "permissions"];
 const TAB_BTN = {
   dashboard: "dashTabBtn",
   raw: "rawTabBtn",
   master: "masterTabBtn",
   masterImport: "masterImportTabBtn",
+  changelog: "changelogTabBtn",
   permissions: "permissionsTabBtn",
 };
 const TAB_VIEW = {
@@ -160,6 +163,7 @@ const TAB_VIEW = {
   raw: "rawView",
   master: "masterView",
   masterImport: "masterImportView",
+  changelog: "changelogView",
   permissions: "permissionsView",
 };
 
@@ -179,6 +183,11 @@ function statChip(label, value, tone) {
 function renderTabStats(tab) {
   const el = adminEls.tabStats;
   if (tab === "dashboard") {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+  if (tab === "changelog") {
     el.innerHTML = "";
     el.classList.add("hidden");
     return;
@@ -1200,6 +1209,10 @@ adminEls.permissionsTabBtn.addEventListener("click", () => {
 
 adminEls.masterImportTabBtn.addEventListener("click", () => {
   setActiveTab("masterImport");
+});
+
+adminEls.changelogTabBtn.addEventListener("click", () => {
+  setActiveTab("changelog");
 });
 
 adminEls.operatorSelect.addEventListener("change", () => {

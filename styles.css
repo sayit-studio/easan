@@ -1030,6 +1030,49 @@ th {
   color: var(--brand-dark);
 }
 
+.changelog-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.changelog-entry {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.changelog-entry time {
+  color: var(--brand-dark);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.changelog-entry strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.changelog-entry p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.changelog-entry ul {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .trend-label {
   fill: var(--muted);
   font-size: 11px;
@@ -1918,6 +1961,12 @@ th {
   .major-record {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .changelog-entry {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
   }
 
   .admin-page .topbar-actions {
