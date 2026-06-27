@@ -1,7 +1,9 @@
-const adminState = {
+﻿const adminState = {
   password: "",
   range: "7",
   data: null,
+  rawBatches: [],
+  rawView: null,
   activeTab: "dashboard",
   permissions: [],
   masterImportResult: null,
@@ -9,6 +11,8 @@ const adminState = {
   statsLoaded: false,
   permsLoaded: false,
   masterCoverage: null,
+  masterItems: [],
+  masterView: null,
   selectedOperator: "",
   loadingCount: 0,
   permissionAutoRefreshTimer: null,
@@ -49,20 +53,29 @@ const adminEls = {
   rawTabBtn: document.querySelector("#rawTabBtn"),
   masterTabBtn: document.querySelector("#masterTabBtn"),
   permissionsTabBtn: document.querySelector("#permissionsTabBtn"),
-  masterImportTabBtn: document.querySelector("#masterImportTabBtn"),
   changelogTabBtn: document.querySelector("#changelogTabBtn"),
   dashboardView: document.querySelector("#dashboardView"),
   rawView: document.querySelector("#rawView"),
   masterView: document.querySelector("#masterView"),
   permissionsView: document.querySelector("#permissionsView"),
-  masterImportView: document.querySelector("#masterImportView"),
   changelogView: document.querySelector("#changelogView"),
   operatorSelect: document.querySelector("#operatorSelect"),
   operatorDetail: document.querySelector("#operatorDetail"),
+  rawItemsHead: document.querySelector("#rawItemsHead"),
+  rawSearchInput: document.querySelector("#rawSearchInput"),
+  rawStatusFilter: document.querySelector("#rawStatusFilter"),
+  rawResetViewBtn: document.querySelector("#rawResetViewBtn"),
+  rawColumnControls: document.querySelector("#rawColumnControls"),
   masterQueryForm: document.querySelector("#masterQueryForm"),
   masterFilterCategory: document.querySelector("#masterFilterCategory"),
   masterQueryMessage: document.querySelector("#masterQueryMessage"),
+  masterItemsHead: document.querySelector("#masterItemsHead"),
   masterItemsBody: document.querySelector("#masterItemsBody"),
+  masterSearchInput: document.querySelector("#masterSearchInput"),
+  masterCategoryCodeFilter: document.querySelector("#masterCategoryCodeFilter"),
+  masterStatusFilter: document.querySelector("#masterStatusFilter"),
+  masterResetViewBtn: document.querySelector("#masterResetViewBtn"),
+  masterColumnControls: document.querySelector("#masterColumnControls"),
   masterCoverage: document.querySelector("#masterCoverage"),
   permissionsRefreshBtn: document.querySelector("#permissionsRefreshBtn"),
   permissionMessage: document.querySelector("#permissionMessage"),
@@ -151,12 +164,11 @@ function featureList(value) {
   return text.split(/[,，、]/).map((item) => item.trim()).filter(Boolean);
 }
 
-const TABS = ["dashboard", "raw", "master", "masterImport", "changelog", "permissions"];
+const TABS = ["dashboard", "raw", "master", "changelog", "permissions"];
 const TAB_BTN = {
   dashboard: "dashTabBtn",
   raw: "rawTabBtn",
   master: "masterTabBtn",
-  masterImport: "masterImportTabBtn",
   changelog: "changelogTabBtn",
   permissions: "permissionsTabBtn",
 };
@@ -164,7 +176,6 @@ const TAB_VIEW = {
   dashboard: "dashboardView",
   raw: "rawView",
   master: "masterView",
-  masterImport: "masterImportView",
   changelog: "changelogView",
   permissions: "permissionsView",
 };
@@ -773,6 +784,204 @@ function renderOperatorDetail(data) {
   `;
 }
 
+
+const RAW_VIEW_STORAGE_KEY = "easan.rawDatabaseView.v1";
+const RAW_COLUMN_DEFS = [
+  { key: "time", label: "時間", sortable: true, required: true },
+  { key: "batchId", label: "批次", sortable: true, required: true },
+  { key: "operator", label: "操作人", sortable: true },
+  { key: "orderNo", label: "製令單號", sortable: true },
+  { key: "total", label: "總數", sortable: true },
+  { key: "passed", label: "通過", sortable: true },
+  { key: "abnormal", label: "異常", sortable: true },
+  { key: "accuracy", label: "正確率", sortable: true },
+  { key: "notify", label: "通知", sortable: true },
+];
+const RAW_DEFAULT_VIEW = {
+  columnOrder: RAW_COLUMN_DEFS.map((col) => col.key),
+  hiddenColumns: [],
+  sort: { key: "time", dir: "desc" },
+  search: "",
+  status: "",
+};
+
+function cloneRawDefaultView() {
+  return {
+    columnOrder: [...RAW_DEFAULT_VIEW.columnOrder],
+    hiddenColumns: [],
+    sort: { ...RAW_DEFAULT_VIEW.sort },
+    search: "",
+    status: "",
+  };
+}
+
+function loadRawViewState() {
+  const fallback = cloneRawDefaultView();
+  try {
+    const saved = JSON.parse(localStorage.getItem(RAW_VIEW_STORAGE_KEY) || "null");
+    if (!saved || typeof saved !== "object") return fallback;
+    const known = new Set(RAW_COLUMN_DEFS.map((col) => col.key));
+    const savedOrder = Array.isArray(saved.columnOrder) ? saved.columnOrder.filter((key) => known.has(key)) : [];
+    const missing = RAW_COLUMN_DEFS.map((col) => col.key).filter((key) => !savedOrder.includes(key));
+    return {
+      columnOrder: [...savedOrder, ...missing],
+      hiddenColumns: Array.isArray(saved.hiddenColumns) ? saved.hiddenColumns.filter((key) => known.has(key)) : [],
+      sort: saved.sort && known.has(saved.sort.key) ? saved.sort : fallback.sort,
+      search: String(saved.search || ""),
+      status: String(saved.status || ""),
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function saveRawViewState() {
+  if (!adminState.rawView) return;
+  localStorage.setItem(RAW_VIEW_STORAGE_KEY, JSON.stringify(adminState.rawView));
+}
+
+function rawColumnDef(key) {
+  return RAW_COLUMN_DEFS.find((col) => col.key === key) || RAW_COLUMN_DEFS[0];
+}
+
+function getVisibleRawColumns() {
+  const view = adminState.rawView || cloneRawDefaultView();
+  const hidden = new Set(view.hiddenColumns || []);
+  return view.columnOrder.map(rawColumnDef).filter((col) => col.required || !hidden.has(col.key));
+}
+
+function normalizeRawBatch(batch) {
+  const total = toNumber(batch.total);
+  const passed = toNumber(batch.passed);
+  const abnormal = toNumber(batch.abnormal);
+  const accuracy = batch.accuracy ?? (total ? passed / total : 0);
+  return {
+    ...batch,
+    time: formatTime(batch.time || ""),
+    rawTime: batch.time || "",
+    batchId: batch.batchId || "",
+    operator: batch.operatorNick || batch.operator || "",
+    orderNo: batch.orderNo || "",
+    total,
+    passed,
+    abnormal,
+    accuracy,
+    notify: batch.notifyStatus || "",
+  };
+}
+
+function getRawComparable(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("zh-Hant");
+}
+
+function getFilteredRawBatches() {
+  const view = adminState.rawView || cloneRawDefaultView();
+  const search = getRawComparable(view.search);
+  const status = String(view.status || "");
+  let rows = [...(adminState.rawBatches || [])];
+  if (search) {
+    rows = rows.filter((row) => [row.time, row.batchId, row.operator, row.orderNo, row.total, row.passed, row.abnormal, formatPercent(row.accuracy), row.notify]
+      .some((value) => getRawComparable(value).includes(search)));
+  }
+  if (status === "normal") rows = rows.filter((row) => toNumber(row.abnormal) === 0);
+  if (status === "abnormal") rows = rows.filter((row) => toNumber(row.abnormal) > 0);
+  if (status === "notified") rows = rows.filter((row) => String(row.notify || "").trim());
+  const sort = view.sort || RAW_DEFAULT_VIEW.sort;
+  rows.sort((a, b) => {
+    let result = 0;
+    if (["total", "passed", "abnormal", "accuracy"].includes(sort.key)) {
+      result = toNumber(a[sort.key]) - toNumber(b[sort.key]);
+    } else if (sort.key === "time") {
+      result = String(a.rawTime || a.time).localeCompare(String(b.rawTime || b.time));
+    } else {
+      result = getRawComparable(a[sort.key]).localeCompare(getRawComparable(b[sort.key]), "zh-Hant", { numeric: true });
+    }
+    return sort.dir === "desc" ? -result : result;
+  });
+  return rows;
+}
+
+function renderRawColumnControls() {
+  if (!adminEls.rawColumnControls || !adminState.rawView) return;
+  const hidden = new Set(adminState.rawView.hiddenColumns || []);
+  adminEls.rawColumnControls.innerHTML = adminState.rawView.columnOrder.map((key) => {
+    const col = rawColumnDef(key);
+    const checked = col.required || !hidden.has(key);
+    return `
+      <div class="database-column-item" data-col="${escapeHtml(key)}" draggable="true">
+        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+        <label>
+          <input type="checkbox" class="raw-column-toggle" ${checked ? "checked" : ""} ${col.required ? "disabled" : ""}>
+          <span>${escapeHtml(col.label)}</span>
+        </label>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderRawTableHead(columns) {
+  if (!adminEls.rawItemsHead) return;
+  const sort = adminState.rawView?.sort || {};
+  adminEls.rawItemsHead.innerHTML = `<tr>${columns.map((col) => {
+    const sorted = sort.key === col.key;
+    const sortMark = sorted ? (sort.dir === "desc" ? " ↓" : " ↑") : "";
+    return `<th class="raw-th${col.sortable ? " sortable" : ""}" draggable="true" data-col="${escapeHtml(col.key)}"><button type="button" ${col.sortable ? "" : "disabled"}>${escapeHtml(col.label)}${sortMark}</button></th>`;
+  }).join("")}</tr>`;
+}
+
+function renderRawCell(row, col) {
+  if (col.key === "batchId") return `<td><span class="batch-toggle">▸</span>${escapeHtml(row.batchId)}</td>`;
+  if (col.key === "accuracy") return `<td>${formatPercent(row.accuracy)}</td>`;
+  if (col.key === "notify") return `<td>${escapeHtml(row.notify) || "—"}</td>`;
+  return `<td>${escapeHtml(row[col.key] ?? "")}</td>`;
+}
+
+function renderRawDatabaseView() {
+  if (!adminState.rawView) adminState.rawView = loadRawViewState();
+  if (adminEls.rawSearchInput) adminEls.rawSearchInput.value = adminState.rawView.search || "";
+  if (adminEls.rawStatusFilter) adminEls.rawStatusFilter.value = adminState.rawView.status || "";
+  const columns = getVisibleRawColumns();
+  renderRawTableHead(columns);
+  renderRawColumnControls();
+  const rows = getFilteredRawBatches();
+  if (!rows.length) {
+    const emptyText = (adminState.rawBatches || []).length ? "查無近期批次" : "尚無近期批次";
+    adminEls.recentBody.innerHTML = `<tr class="empty-row"><td colspan="${columns.length}">${emptyText}</td></tr>`;
+    return;
+  }
+  adminEls.recentBody.innerHTML = rows.map((row) =>
+    `<tr class="batch-row" data-batch-id="${escapeHtml(row.batchId)}" tabindex="0">${columns.map((col) => renderRawCell(row, col)).join("")}</tr>`
+  ).join("");
+}
+
+function setRawSort(key) {
+  const col = rawColumnDef(key);
+  if (!col.sortable) return;
+  const current = adminState.rawView.sort || {};
+  adminState.rawView.sort = { key, dir: current.key === key && current.dir === "asc" ? "desc" : "asc" };
+  saveRawViewState();
+  renderRawDatabaseView();
+}
+
+function toggleRawColumn(key, visible) {
+  const col = rawColumnDef(key);
+  if (col.required) return;
+  const hidden = new Set(adminState.rawView.hiddenColumns || []);
+  if (visible) hidden.delete(key); else hidden.add(key);
+  adminState.rawView.hiddenColumns = [...hidden];
+  saveRawViewState();
+  renderRawDatabaseView();
+}
+
+function reorderColumnsFromDrop(view, sourceKey, targetKey) {
+  const order = view.columnOrder;
+  const sourceIndex = order.indexOf(sourceKey);
+  const targetIndex = order.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+  order.splice(targetIndex, 0, order.splice(sourceIndex, 1)[0]);
+  return true;
+}
+
 function renderRecent(data) {
   let recent = data.recent || [];
   const key = adminState.selectedOperator;
@@ -781,32 +990,8 @@ function renderRecent(data) {
     const name = op ? op.name : key;
     recent = recent.filter((b) => (b.operator || "") === name);
   }
-  if (!recent.length) {
-    adminEls.recentBody.innerHTML = '<tr class="empty-row"><td colspan="9">尚無近期批次</td></tr>';
-    return;
-  }
-  adminEls.recentBody.innerHTML = recent.map((batch) => {
-    const total = toNumber(batch.total);
-    const passed = toNumber(batch.passed);
-    const abnormal = toNumber(batch.abnormal);
-    const accuracy = batch.accuracy ?? (total ? passed / total : 0);
-    const batchId = batch.batchId || "";
-    const notify = batch.notifyStatus || "";
-    const time = formatTime(batch.time || "");
-    return `
-      <tr class="batch-row" data-batch-id="${escapeHtml(batchId)}" tabindex="0">
-        <td>${escapeHtml(time)}</td>
-        <td><span class="batch-toggle">▸</span>${escapeHtml(batchId)}</td>
-        <td>${escapeHtml(batch.operatorNick || batch.operator || "")}</td>
-        <td>${escapeHtml(batch.orderNo || "")}</td>
-        <td>${total}</td>
-        <td>${passed}</td>
-        <td>${abnormal}</td>
-        <td>${formatPercent(accuracy)}</td>
-        <td>${escapeHtml(notify) || "—"}</td>
-      </tr>
-    `;
-  }).join("");
+  adminState.rawBatches = recent.map(normalizeRawBatch);
+  renderRawDatabaseView();
 }
 
 function reRenderOperatorViews() {
@@ -828,7 +1013,7 @@ function formatTime(value) {
 function buildBatchDetailRow(batchId) {
   const rows = (adminState.detailsByBatch && adminState.detailsByBatch.get(String(batchId))) || [];
   if (!rows.length) {
-    return `<tr class="batch-detail-row"><td colspan="9"><p class="result-note">此批次明細未載入（可能超出統計範圍上限）</p></td></tr>`;
+    return `<tr class="batch-detail-row"><td colspan="${getVisibleRawColumns().length}"><p class="result-note">此批次明細未載入（可能超出統計範圍上限）</p></td></tr>`;
   }
   const body = rows.map((r) => {
     const ok = r.status === "OK";
@@ -846,7 +1031,7 @@ function buildBatchDetailRow(batchId) {
   }).join("");
   return `
     <tr class="batch-detail-row">
-      <td colspan="9">
+      <td colspan="${getVisibleRawColumns().length}">
         <table class="batch-detail-table">
           <thead><tr><th>狀態</th><th>品號</th><th>規格</th><th>OCR</th><th>錯誤類型</th><th>備註</th></tr></thead>
           <tbody>${body}</tbody>
@@ -1100,32 +1285,260 @@ function loadMasterCoverageSafe() {
 
 const MASTER_CATEGORIES = ["OMBRA", "吹氣盒", "未分類"];
 const MASTER_STATUSES = ["啟用", "停用"];
+const MASTER_CATEGORY_CODES = [{"code":"B01","name":"無LOGO火星套筒-託工"},{"code":"B02","name":"無LOGO更換套筒-託工"},{"code":"B03","name":"無LOGO螺絲套筒-託工"},{"code":"B08","name":"無LOGO氣動套筒組裝"},{"code":"B11","name":"LOGO火星套筒-託工"},{"code":"B12","name":"LOGO更換套筒-託工"},{"code":"B13","name":"LOGO螺絲套筒-託工"},{"code":"B18","name":"LOGO氣動套筒組裝"},{"code":"B54","name":"鉗類"},{"code":"B82","name":"汽修  底盤傳動工具 (組合)"},{"code":"C05","name":"貫通方桿類"},{"code":"C06","name":"押配類"},{"code":"C11","name":"套筒/火星組"},{"code":"C13","name":"一體成型BIT套筒"},{"code":"C16","name":"螺絲套筒組"},{"code":"C18","name":"氣動套筒/火星組"},{"code":"C30","name":"一般板手組"},{"code":"C31","name":"棘輪板手組"},{"code":"C32","name":"拆輪板手組"},{"code":"C33","name":"扭力測量工具組"},{"code":"C35","name":"六角板手組"},{"code":"C51","name":"BIT組"},{"code":"C52","name":"起子組"},{"code":"C54","name":"鉗類組"},{"code":"C58","name":"方桿組"},{"code":"C59","name":"萬向組"},{"code":"C62","name":"鋸子組"},{"code":"C64","name":"沖刀類組"},{"code":"C65","name":"銼刀組"},{"code":"C67","name":"量具組"},{"code":"C81","name":"汽修  引擎修護工具 (組合)"},{"code":"C82","name":"汽修  底盤傳動工具 (組合)"},{"code":"C83","name":"汽修 電機修查工具"},{"code":"C84","name":"汽修 車身板金工具 (組合)"},{"code":"C85","name":"汽修 大車工具 (組合)"},{"code":"C86","name":"汽修 測試工具 (組合)"},{"code":"C87","name":"汽修 拉拔器 (組合)"},{"code":"C88","name":"汽修 特別分類 (組合)"},{"code":"D11","name":"套筒/火星"},{"code":"D12","name":"接桿/ 接頭"},{"code":"D13","name":"一體成型BIT套筒"},{"code":"D14","name":"更換套筒"},{"code":"D15","name":"強力套筒"},{"code":"D16","name":"螺絲套筒"},{"code":"D17","name":"特殊接桿/ 接頭"},{"code":"D18","name":"氣動套筒/火星"},{"code":"D19","name":"氣動接桿/ 接頭"},{"code":"D20","name":"氣動萬象"},{"code":"D22","name":"氣動起子頭(一體套筒)"},{"code":"D29","name":"汽動扭力測試機"},{"code":"D30","name":"一般板手類"},{"code":"D31","name":"棘輪板手"},{"code":"D32","name":"拆輪板手類"},{"code":"D33","name":"扭力測量工具"},{"code":"D34","name":"活動板手"},{"code":"D35","name":"六角板手類"},{"code":"D36","name":"鉤型板手類"},{"code":"D50","name":"柄類"},{"code":"D51","name":"BIT類"},{"code":"D52","name":"起子類"},{"code":"D53","name":"桿類"},{"code":"D54","name":"鉗類"},{"code":"D55","name":"萬能鉗"},{"code":"D56","name":"槌類"},{"code":"D57","name":"棘輪類"},{"code":"D58","name":"方桿類"},{"code":"D59","name":"萬向類"},{"code":"D61","name":"其它類"},{"code":"D62","name":"鋸子類"},{"code":"D63","name":"刀、剪類"},{"code":"D64","name":"沖刀類"},{"code":"D65","name":"銼刀類"},{"code":"D67","name":"量具類"},{"code":"D68","name":"水泥鑽"},{"code":"D691","name":"水管工具 金屬切割器(銅/鐵/白鐵...)"},{"code":"D71","name":"汽動工具類"},{"code":"D72","name":"空氣軟管類"},{"code":"D73","name":"反沖軟管類"},{"code":"D74","name":"氣動釘槍"},{"code":"D75","name":"電動工具類"},{"code":"D81","name":"汽修  引擎修護工具"},{"code":"D82","name":"汽修  底盤傳動工具"},{"code":"D83","name":"汽修 電機修查工具"},{"code":"D84","name":"汽修 車身板金工具"},{"code":"D85","name":"汽修 大車工具"},{"code":"D86","name":"汽修 測試工具"},{"code":"D87","name":"汽修 拉拔器"},{"code":"D88","name":"汽修 特別分類"},{"code":"D91","name":"铣刀"},{"code":"D92","name":"漆類"},{"code":"D93","name":"噴筆類"},{"code":"E01","name":"無LOGO套筒"},{"code":"E02","name":"無LOGO接桿/接頭"},{"code":"E03","name":"無LOGO HBS套筒"},{"code":"E04","name":"無LOGO更換套筒(不等邊)"},{"code":"E05","name":"無LOGO強力套筒/BIT接桿"},{"code":"E06","name":"無LOGO螺絲/穿透套筒"},{"code":"E07","name":"無LOGO特殊接桿/其它"},{"code":"E08","name":"無LOGO氣動套筒"},{"code":"E09","name":"無LOGO氣動接桿/接頭"},{"code":"E11","name":"LOGO套筒"},{"code":"E12","name":"LOGO接桿/接頭"},{"code":"E13","name":"LOGO HBS套筒"},{"code":"E14","name":"LOGO更換套筒(不等邊)"},{"code":"E16","name":"LOGO螺絲/穿透套筒"},{"code":"E17","name":"LOGO特殊接桿/TM頭"},{"code":"E18","name":"LOGO氣動套筒"},{"code":"E19","name":"LOGO氣動接桿/接頭"},{"code":"E82","name":"汽修  底盤傳動工具 (組合)"},{"code":"F01","name":"車工品套筒"},{"code":"F02","name":"車工品接桿/接頭"},{"code":"F03","name":"車工品HBS套筒"},{"code":"F04","name":"車工品更換套筒(不等邊)"},{"code":"F05","name":"車工品強力套筒/BIT接桿"},{"code":"F06","name":"車工品螺絲/穿透套筒"},{"code":"F07","name":"車工品特殊接桿/TM頭"},{"code":"F08","name":"車工品氣動套筒"},{"code":"F09","name":"車工品氣動接桿/接頭"},{"code":"G01","name":"鍛品套筒"},{"code":"G02","name":"鍛品接桿/接頭"},{"code":"G03","name":"鍛品HBS套筒"},{"code":"G04","name":"鍛品更換套筒(不等邊)"},{"code":"G05","name":"鍛品強力套筒/BIT接桿"},{"code":"G06","name":"鍛品螺絲套筒/穿透套筒"},{"code":"G07","name":"鍛品特殊接桿/TM頭"},{"code":"G08","name":"鍛品氣動套筒"},{"code":"G09","name":"鍛品氣動接桿/接頭"},{"code":"H01","name":"鋼料"},{"code":"H02","name":"管/板類"},{"code":"H11","name":"塑膠原料"},{"code":"I01","name":"吹氣盒"},{"code":"I02","name":"PP/PS盒類"},{"code":"I03","name":"鐵盒類"},{"code":"I05","name":"皮包類"},{"code":"I07","name":"工具車"},{"code":"I08","name":"POUSH包類"},{"code":"I09","name":"(布類/牛津布)工具腰包/工具提箱/工作背心/空調背心"},{"code":"I10","name":"吊牌類"},{"code":"I11","name":"套筒夾類"},{"code":"I12","name":"底盤類"},{"code":"I13","name":"泡殼類"},{"code":"I14","name":"EVA類"},{"code":"I15","name":"壓克力類"},{"code":"I16","name":"防盜系列"},{"code":"I17","name":"吊牌零件類"},{"code":"I20","name":"彩盒類"},{"code":"I21","name":"彩套類"},{"code":"I22","name":"紙卡類"},{"code":"I23","name":"貼標類"},{"code":"I24","name":"彩標類"},{"code":"I25","name":"說明書類"},{"code":"I260","name":"產品UPC說明書貼標"},{"code":"I263","name":"內箱UPC貼標"},{"code":"I264","name":"外箱UPC貼標"},{"code":"I30","name":"泡棉類"},{"code":"I31","name":"束帶類"},{"code":"I32","name":"塑膠袋"},{"code":"I33","name":"列印耗材類"},{"code":"I39","name":"散單自黏貼標"},{"code":"I40","name":"紙箱"},{"code":"I41","name":"隔板類"},{"code":"I42","name":"棧板類"},{"code":"I45","name":"組套紙箱"},{"code":"I46","name":"散單紙箱"},{"code":"I47","name":"安庫紙箱"},{"code":"I99","name":"包材其他類"},{"code":"Q","name":"客供品"},{"code":"S00","name":"純套筒組套(1/4\"DR,3/8\"DR,1/2\"DR)"},{"code":"S01","name":"套筒組套(1/4\"DR,3/8\"DR,1/2\"DR)"},{"code":"S02","name":"套筒工具組套(1/4\"DR,3/8\"DR,1/2\"DR)"},{"code":"S03","name":"工具組"},{"code":"S04","name":"一猛打振"},{"code":"S05","name":"貫通方桿組套"},{"code":"S06","name":"押配組套"},{"code":"S07","name":"Set with only socket"},{"code":"S11","name":"套筒/火星組"},{"code":"S12","name":"接桿/接頭組"},{"code":"S13","name":"HBS套筒組"},{"code":"S14","name":"更換套筒組"},{"code":"S15","name":"強力套筒組"},{"code":"S16","name":"螺絲套筒組"},{"code":"S17","name":"特殊接桿/接頭組"},{"code":"S18","name":"氣動套筒組"},{"code":"S19","name":"氣動接頭/接桿組"},{"code":"S20","name":"氣動萬象組"},{"code":"S21","name":"3/4\"DR 一般套筒相關組套(80MM以下)"},{"code":"S22","name":"1\"DR 一般套筒相關組套(100MM以下)"},{"code":"S23","name":"氣動套筒(組套)"},{"code":"S25","name":"氣動HBS套筒組"},{"code":"S30","name":"一般板手組"},{"code":"S31","name":"棘輪板手組"},{"code":"S32","name":"拆輪板手組"},{"code":"S33","name":"扭力測量工具組"},{"code":"S34","name":"活動板手組"},{"code":"S35","name":"六角板手組"},{"code":"S50","name":"柄類組"},{"code":"S51","name":"BIT類組"},{"code":"S52","name":"起子組"},{"code":"S53","name":"桿類組"},{"code":"S54","name":"鉗類組"},{"code":"S55","name":"萬能鉗組"},{"code":"S56","name":"槌類組"},{"code":"S57","name":"棘輪類組"},{"code":"S58","name":"方桿組"},{"code":"S59","name":"萬向組"},{"code":"S61","name":"其它類組"},{"code":"S62","name":"鋸子組"},{"code":"S63","name":"刀剪組"},{"code":"S64","name":"沖/銼刀類"},{"code":"S67","name":"量具組"},{"code":"S71","name":"汽動工具類組"},{"code":"S74","name":"氣動釘槍組"},{"code":"S81","name":"汽修  引擎修護工具"},{"code":"S82","name":"汽修  底盤傳動工具"},{"code":"S83","name":"汽修 電機修查工具"},{"code":"S84","name":"汽修 車身板金工具"},{"code":"S85","name":"汽修 大車工具"},{"code":"S86","name":"汽修 測試工具"},{"code":"S87","name":"汽修 拉拔器"},{"code":"S88","name":"汽修 特別分類"},{"code":"S93","name":"噴筆組類"},{"code":"S98","name":"不同組套合包"},{"code":"S99","name":"包材組"}];
+const MASTER_CATEGORY_BY_CODE = new Map(MASTER_CATEGORY_CODES.map((item) => [item.code, item.name]));
+const MASTER_CATEGORY_PREFIXES = MASTER_CATEGORY_CODES.map((item) => item.code).sort((a, b) => b.length - a.length);
+const MASTER_VIEW_STORAGE_KEY = "easan.masterDatabaseView.v1";
+const MASTER_COLUMN_DEFS = [
+  { key: "partNo", label: "品號", sortable: true, required: true },
+  { key: "categoryCode", label: "分類碼", sortable: true },
+  { key: "categoryName", label: "分類名稱", sortable: true },
+  { key: "name", label: "品名", sortable: true },
+  { key: "spec", label: "規格", sortable: true, wide: true },
+  { key: "category", label: "資料分類", sortable: true },
+  { key: "status", label: "狀態", sortable: true },
+  { key: "unit", label: "單位", sortable: true },
+  { key: "action", label: "操作", required: true },
+];
+const MASTER_DEFAULT_VIEW = {
+  columnOrder: MASTER_COLUMN_DEFS.map((col) => col.key),
+  hiddenColumns: [],
+  sort: { key: "partNo", dir: "asc" },
+  search: "",
+  categoryCode: "",
+  status: "",
+};
 
-function renderMasterItems(payload, category) {
-  const items = payload.items || [];
-  adminState.masterCoverage = payload.categoryCounts || adminState.masterCoverage;
-  renderTabStats("master");
-  adminEls.masterQueryMessage.textContent = `共 ${toNumber(payload.filteredCount)} 筆${category ? `（${category}）` : "（全部）"}${payload.filteredCount > items.length ? `，顯示前 ${items.length} 筆` : ""}`;
-  if (!items.length) {
-    adminEls.masterItemsBody.innerHTML = '<tr class="empty-row"><td colspan="6">查無品項</td></tr>';
-    return;
+function cloneMasterDefaultView() {
+  return {
+    columnOrder: [...MASTER_DEFAULT_VIEW.columnOrder],
+    hiddenColumns: [],
+    sort: { ...MASTER_DEFAULT_VIEW.sort },
+    search: "",
+    categoryCode: "",
+    status: "",
+  };
+}
+
+function loadMasterViewState() {
+  const fallback = cloneMasterDefaultView();
+  try {
+    const saved = JSON.parse(localStorage.getItem(MASTER_VIEW_STORAGE_KEY) || "null");
+    if (!saved || typeof saved !== "object") return fallback;
+    const known = new Set(MASTER_COLUMN_DEFS.map((col) => col.key));
+    const savedOrder = Array.isArray(saved.columnOrder) ? saved.columnOrder.filter((key) => known.has(key)) : [];
+    const missing = MASTER_COLUMN_DEFS.map((col) => col.key).filter((key) => !savedOrder.includes(key));
+    return {
+      columnOrder: [...savedOrder, ...missing],
+      hiddenColumns: Array.isArray(saved.hiddenColumns) ? saved.hiddenColumns.filter((key) => known.has(key)) : [],
+      sort: saved.sort && known.has(saved.sort.key) ? saved.sort : fallback.sort,
+      search: String(saved.search || ""),
+      categoryCode: String(saved.categoryCode || ""),
+      status: String(saved.status || ""),
+    };
+  } catch (error) {
+    return fallback;
   }
-  adminEls.masterItemsBody.innerHTML = items.map((it) => {
-    const cat = it.category || "未分類";
-    const status = it.status || "啟用";
-    const catSel = MASTER_CATEGORIES.map((c) => `<option value="${c}" ${c === cat ? "selected" : ""}>${c}</option>`).join("");
-    const stSel = MASTER_STATUSES.map((s) => `<option value="${s}" ${s === status ? "selected" : ""}>${s}</option>`).join("");
+}
+
+function saveMasterViewState() {
+  if (!adminState.masterView) return;
+  localStorage.setItem(MASTER_VIEW_STORAGE_KEY, JSON.stringify(adminState.masterView));
+}
+
+function masterColumnDef(key) {
+  return MASTER_COLUMN_DEFS.find((col) => col.key === key) || MASTER_COLUMN_DEFS[0];
+}
+
+function getVisibleMasterColumns() {
+  const view = adminState.masterView || cloneMasterDefaultView();
+  const hidden = new Set(view.hiddenColumns || []);
+  return view.columnOrder.map(masterColumnDef).filter((col) => col.required || !hidden.has(col.key));
+}
+
+function inferMasterCategoryCode(item) {
+  const explicit = String(item.categoryCode || item.code || item.classCode || "").trim().toUpperCase();
+  if (explicit) return explicit;
+  const category = String(item.category || "").trim().toUpperCase();
+  if (MASTER_CATEGORY_BY_CODE.has(category)) return category;
+  const partNo = String(item.partNo || "").trim().toUpperCase();
+  for (const code of MASTER_CATEGORY_PREFIXES) {
+    if (partNo.startsWith(code)) return code;
+  }
+  const match = partNo.match(/^[A-Z][0-9]{2}/);
+  return match ? match[0] : "";
+}
+
+function normalizeMasterItem(item) {
+  const categoryCode = inferMasterCategoryCode(item);
+  const categoryName = String(item.categoryName || item.className || MASTER_CATEGORY_BY_CODE.get(categoryCode) || "").trim();
+  return {
+    ...item,
+    partNo: String(item.partNo || "").trim(),
+    name: String(item.name || "").trim(),
+    spec: String(item.spec || "").trim(),
+    category: String(item.category || "未分類").trim() || "未分類",
+    status: String(item.status || "未設定").trim() || "未設定",
+    unit: String(item.unit || "").trim(),
+    categoryCode,
+    categoryName,
+  };
+}
+
+function masterComparable(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("zh-Hant");
+}
+
+function getFilteredMasterItems() {
+  const view = adminState.masterView || cloneMasterDefaultView();
+  const search = masterComparable(view.search);
+  const code = String(view.categoryCode || "");
+  const status = String(view.status || "");
+  let items = [...(adminState.masterItems || [])];
+  if (search) {
+    items = items.filter((item) => [
+      item.partNo,
+      item.name,
+      item.spec,
+      item.category,
+      item.categoryCode,
+      item.categoryName,
+      item.unit,
+      item.status,
+    ].some((value) => masterComparable(value).includes(search)));
+  }
+  if (code) items = items.filter((item) => item.categoryCode === code);
+  if (status) items = items.filter((item) => item.status === status);
+  const sort = view.sort || MASTER_DEFAULT_VIEW.sort;
+  if (sort.key && sort.key !== "action") {
+    items.sort((a, b) => {
+      const result = masterComparable(a[sort.key]).localeCompare(masterComparable(b[sort.key]), "zh-Hant", { numeric: true });
+      return sort.dir === "desc" ? -result : result;
+    });
+  }
+  return items;
+}
+
+function renderMasterCategoryCodeOptions() {
+  if (!adminEls.masterCategoryCodeFilter) return;
+  const current = adminState.masterView?.categoryCode || "";
+  const loadedCodes = new Set((adminState.masterItems || []).map((item) => item.categoryCode).filter(Boolean));
+  const codes = MASTER_CATEGORY_CODES.filter((item) => loadedCodes.size ? loadedCodes.has(item.code) : true);
+  adminEls.masterCategoryCodeFilter.innerHTML = '<option value="">全部分類碼</option>' + codes.map((item) =>
+    `<option value="${escapeHtml(item.code)}" ${item.code === current ? "selected" : ""}>${escapeHtml(item.code)} - ${escapeHtml(item.name)}</option>`
+  ).join("");
+}
+
+function renderMasterColumnControls() {
+  if (!adminEls.masterColumnControls || !adminState.masterView) return;
+  const hidden = new Set(adminState.masterView.hiddenColumns || []);
+  adminEls.masterColumnControls.innerHTML = adminState.masterView.columnOrder.map((key) => {
+    const col = masterColumnDef(key);
+    const checked = col.required || !hidden.has(key);
     return `
-      <tr data-page-id="${escapeHtml(it.pageId)}">
-        <td>${escapeHtml(it.partNo)}</td>
-        <td>${escapeHtml(it.name || "")}</td>
-        <td><span class="cell-text">${escapeHtml(it.spec || "")}</span></td>
-        <td><select class="master-cat">${catSel}</select></td>
-        <td><select class="master-status">${stSel}</select></td>
-        <td><button class="ghost-btn master-save-btn" type="button">儲存</button></td>
-      </tr>
+      <div class="database-column-item" data-col="${escapeHtml(key)}" draggable="true">
+        <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+        <label>
+          <input type="checkbox" class="master-column-toggle" ${checked ? "checked" : ""} ${col.required ? "disabled" : ""}>
+          <span>${escapeHtml(col.label)}</span>
+        </label>
+      </div>
     `;
   }).join("");
+}
+
+function moveMasterColumn(key, direction) {
+  const order = adminState.masterView.columnOrder;
+  const index = order.indexOf(key);
+  const nextIndex = index + direction;
+  if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return;
+  [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
+  saveMasterViewState();
+  renderMasterDatabaseView();
+}
+
+function toggleMasterColumn(key, visible) {
+  const col = masterColumnDef(key);
+  if (col.required) return;
+  const hidden = new Set(adminState.masterView.hiddenColumns || []);
+  if (visible) hidden.delete(key); else hidden.add(key);
+  adminState.masterView.hiddenColumns = [...hidden];
+  saveMasterViewState();
+  renderMasterDatabaseView();
+}
+
+function setMasterSort(key) {
+  const col = masterColumnDef(key);
+  if (!col.sortable) return;
+  const current = adminState.masterView.sort || {};
+  adminState.masterView.sort = {
+    key,
+    dir: current.key === key && current.dir === "asc" ? "desc" : "asc",
+  };
+  saveMasterViewState();
+  renderMasterDatabaseView();
+}
+
+function renderMasterTableHead(columns) {
+  if (!adminEls.masterItemsHead) return;
+  const sort = adminState.masterView?.sort || {};
+  adminEls.masterItemsHead.innerHTML = `<tr>${columns.map((col) => {
+    const sorted = sort.key === col.key;
+    const sortMark = sorted ? (sort.dir === "desc" ? " ↓" : " ↑") : "";
+    const sortable = col.sortable ? " sortable" : "";
+    return `<th class="master-th${sortable}" draggable="true" data-col="${escapeHtml(col.key)}"><button type="button" ${col.sortable ? "" : "disabled"}>${escapeHtml(col.label)}${sortMark}</button></th>`;
+  }).join("")}</tr>`;
+}
+
+function renderMasterCell(item, col) {
+  if (col.key === "spec") return `<td class="wide-cell"><span class="cell-text">${escapeHtml(item.spec || "")}</span></td>`;
+  if (col.key === "category") {
+    const cat = item.category || "未分類";
+    const catSel = MASTER_CATEGORIES.map((c) => `<option value="${escapeHtml(c)}" ${c === cat ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+    return `<td><select class="master-cat">${catSel}</select></td>`;
+  }
+  if (col.key === "status") {
+    const status = item.status === "未設定" ? "啟用" : item.status;
+    const stSel = MASTER_STATUSES.map((s) => `<option value="${escapeHtml(s)}" ${s === status ? "selected" : ""}>${escapeHtml(s)}</option>`).join("");
+    return `<td><select class="master-status">${stSel}</select></td>`;
+  }
+  if (col.key === "action") return '<td><button class="ghost-btn master-save-btn" type="button">儲存</button></td>';
+  if (col.key === "categoryCode") return `<td><span class="badge neutral">${escapeHtml(item.categoryCode || "未判定")}</span></td>`;
+  if (col.key === "categoryName") return `<td><span class="cell-text">${escapeHtml(item.categoryName || "")}</span></td>`;
+  return `<td>${escapeHtml(item[col.key] || "")}</td>`;
+}
+
+function renderMasterDatabaseView() {
+  if (!adminState.masterView) adminState.masterView = loadMasterViewState();
+  if (adminEls.masterSearchInput) adminEls.masterSearchInput.value = adminState.masterView.search || "";
+  if (adminEls.masterStatusFilter) adminEls.masterStatusFilter.value = adminState.masterView.status || "";
+  renderMasterCategoryCodeOptions();
+  const columns = getVisibleMasterColumns();
+  renderMasterTableHead(columns);
+  renderMasterColumnControls();
+  const items = getFilteredMasterItems();
+  if (!items.length) {
+    const emptyText = (adminState.masterItems || []).length ? "查無品項" : "尚未查詢";
+    adminEls.masterItemsBody.innerHTML = `<tr class="empty-row"><td colspan="${columns.length}">${emptyText}</td></tr>`;
+    return;
+  }
+  adminEls.masterItemsBody.innerHTML = items.map((item) =>
+    `<tr data-page-id="${escapeHtml(item.pageId)}">${columns.map((col) => renderMasterCell(item, col)).join("")}</tr>`
+  ).join("");
+}
+
+function renderMasterItems(payload, category) {
+  const items = (payload.items || []).map(normalizeMasterItem);
+  adminState.masterItems = items;
+  adminState.masterCoverage = payload.categoryCounts || adminState.masterCoverage;
+  if (!adminState.masterView) adminState.masterView = loadMasterViewState();
+  renderTabStats("master");
+  renderMasterDatabaseView();
+  const filteredItems = getFilteredMasterItems();
+  const serverTotal = toNumber(payload.filteredCount ?? items.length);
+  const serverNote = serverTotal > items.length ? `，目前載入前 ${items.length} 筆` : "";
+  const clientNote = filteredItems.length !== items.length ? `，視角顯示 ${filteredItems.length} 筆` : "";
+  adminEls.masterQueryMessage.textContent = `共 ${serverTotal} 筆${category ? `（${category}）` : "（全部）"}${serverNote}${clientNote}`;
 }
 
 function queryMaster() {
@@ -1138,6 +1551,19 @@ function queryMaster() {
       if (/密碼|權限|403/.test(error.message)) backToLogin(error.message);
     });
 }
+
+function initMasterDatabaseView() {
+  adminState.masterView = loadMasterViewState();
+  renderMasterDatabaseView();
+}
+
+function initRawDatabaseView() {
+  adminState.rawView = loadRawViewState();
+  renderRawDatabaseView();
+}
+
+initMasterDatabaseView();
+initRawDatabaseView();
 
 function rangeLabel(range) {
   if (range === "7") return "近 7 天";
@@ -1245,10 +1671,6 @@ adminEls.permissionsTabBtn.addEventListener("click", () => {
   setActiveTab("permissions");
 });
 
-adminEls.masterImportTabBtn.addEventListener("click", () => {
-  setActiveTab("masterImport");
-});
-
 adminEls.changelogTabBtn.addEventListener("click", () => {
   setActiveTab("changelog");
 });
@@ -1271,13 +1693,176 @@ adminEls.masterQueryForm.addEventListener("submit", (event) => {
   queryMaster();
 });
 
+adminEls.masterSearchInput?.addEventListener("input", () => {
+  adminState.masterView.search = adminEls.masterSearchInput.value;
+  saveMasterViewState();
+  renderMasterDatabaseView();
+});
+
+adminEls.masterCategoryCodeFilter?.addEventListener("change", () => {
+  adminState.masterView.categoryCode = adminEls.masterCategoryCodeFilter.value;
+  saveMasterViewState();
+  renderMasterDatabaseView();
+});
+
+adminEls.masterStatusFilter?.addEventListener("change", () => {
+  adminState.masterView.status = adminEls.masterStatusFilter.value;
+  saveMasterViewState();
+  renderMasterDatabaseView();
+});
+
+adminEls.masterResetViewBtn?.addEventListener("click", () => {
+  localStorage.removeItem(MASTER_VIEW_STORAGE_KEY);
+  adminState.masterView = cloneMasterDefaultView();
+  renderMasterDatabaseView();
+});
+
+adminEls.masterColumnControls?.addEventListener("change", (event) => {
+  const input = event.target.closest(".master-column-toggle");
+  if (!input) return;
+  const row = input.closest(".database-column-item");
+  toggleMasterColumn(row?.dataset.col || "", input.checked);
+});
+
+adminEls.masterColumnControls?.addEventListener("dragstart", (event) => {
+  const item = event.target.closest(".database-column-item[data-col]");
+  if (!item) return;
+  event.dataTransfer.setData("text/plain", item.dataset.col);
+  event.dataTransfer.effectAllowed = "move";
+});
+
+adminEls.masterColumnControls?.addEventListener("dragover", (event) => {
+  if (event.target.closest(".database-column-item[data-col]")) event.preventDefault();
+});
+
+adminEls.masterColumnControls?.addEventListener("drop", (event) => {
+  const target = event.target.closest(".database-column-item[data-col]");
+  if (!target) return;
+  event.preventDefault();
+  const sourceKey = event.dataTransfer.getData("text/plain");
+  if (!reorderColumnsFromDrop(adminState.masterView, sourceKey, target.dataset.col)) return;
+  saveMasterViewState();
+  renderMasterDatabaseView();
+});
+
+adminEls.rawSearchInput?.addEventListener("input", () => {
+  adminState.rawView.search = adminEls.rawSearchInput.value;
+  saveRawViewState();
+  renderRawDatabaseView();
+});
+
+adminEls.rawStatusFilter?.addEventListener("change", () => {
+  adminState.rawView.status = adminEls.rawStatusFilter.value;
+  saveRawViewState();
+  renderRawDatabaseView();
+});
+
+adminEls.rawResetViewBtn?.addEventListener("click", () => {
+  localStorage.removeItem(RAW_VIEW_STORAGE_KEY);
+  adminState.rawView = cloneRawDefaultView();
+  renderRawDatabaseView();
+});
+
+adminEls.rawColumnControls?.addEventListener("change", (event) => {
+  const input = event.target.closest(".raw-column-toggle");
+  if (!input) return;
+  const row = input.closest(".database-column-item");
+  toggleRawColumn(row?.dataset.col || "", input.checked);
+});
+
+adminEls.rawColumnControls?.addEventListener("dragstart", (event) => {
+  const item = event.target.closest(".database-column-item[data-col]");
+  if (!item) return;
+  event.dataTransfer.setData("text/plain", item.dataset.col);
+  event.dataTransfer.effectAllowed = "move";
+});
+
+adminEls.rawColumnControls?.addEventListener("dragover", (event) => {
+  if (event.target.closest(".database-column-item[data-col]")) event.preventDefault();
+});
+
+adminEls.rawColumnControls?.addEventListener("drop", (event) => {
+  const target = event.target.closest(".database-column-item[data-col]");
+  if (!target) return;
+  event.preventDefault();
+  const sourceKey = event.dataTransfer.getData("text/plain");
+  if (!reorderColumnsFromDrop(adminState.rawView, sourceKey, target.dataset.col)) return;
+  saveRawViewState();
+  renderRawDatabaseView();
+});
+
+adminEls.rawItemsHead?.addEventListener("click", (event) => {
+  const th = event.target.closest("th[data-col]");
+  if (!th || event.target.closest("button")?.disabled) return;
+  setRawSort(th.dataset.col);
+});
+
+adminEls.rawItemsHead?.addEventListener("dragstart", (event) => {
+  const th = event.target.closest("th[data-col]");
+  if (!th) return;
+  event.dataTransfer.setData("text/plain", th.dataset.col);
+  event.dataTransfer.effectAllowed = "move";
+});
+
+adminEls.rawItemsHead?.addEventListener("dragover", (event) => {
+  if (event.target.closest("th[data-col]")) event.preventDefault();
+});
+
+adminEls.rawItemsHead?.addEventListener("drop", (event) => {
+  const target = event.target.closest("th[data-col]");
+  if (!target) return;
+  event.preventDefault();
+  const sourceKey = event.dataTransfer.getData("text/plain");
+  if (!reorderColumnsFromDrop(adminState.rawView, sourceKey, target.dataset.col)) return;
+  saveRawViewState();
+  renderRawDatabaseView();
+});
+
+adminEls.masterItemsHead?.addEventListener("click", (event) => {
+  const th = event.target.closest("th[data-col]");
+  if (!th || event.target.closest("button")?.disabled) return;
+  setMasterSort(th.dataset.col);
+});
+
+adminEls.masterItemsHead?.addEventListener("dragstart", (event) => {
+  const th = event.target.closest("th[data-col]");
+  if (!th) return;
+  event.dataTransfer.setData("text/plain", th.dataset.col);
+  event.dataTransfer.effectAllowed = "move";
+});
+
+adminEls.masterItemsHead?.addEventListener("dragover", (event) => {
+  if (event.target.closest("th[data-col]")) event.preventDefault();
+});
+
+adminEls.masterItemsHead?.addEventListener("drop", (event) => {
+  const target = event.target.closest("th[data-col]");
+  if (!target) return;
+  event.preventDefault();
+  const sourceKey = event.dataTransfer.getData("text/plain");
+  const targetKey = target.dataset.col;
+  const order = adminState.masterView.columnOrder;
+  const sourceIndex = order.indexOf(sourceKey);
+  const targetIndex = order.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+  order.splice(targetIndex, 0, order.splice(sourceIndex, 1)[0]);
+  saveMasterViewState();
+  renderMasterDatabaseView();
+});
+
 adminEls.masterItemsBody.addEventListener("click", (event) => {
   const button = event.target.closest(".master-save-btn");
   if (!button) return;
   const row = button.closest("tr");
   const pageId = row.dataset.pageId;
-  const newCategory = row.querySelector(".master-cat").value;
-  const newStatus = row.querySelector(".master-status").value;
+  const categorySelect = row.querySelector(".master-cat");
+  const statusSelect = row.querySelector(".master-status");
+  if (!categorySelect || !statusSelect) {
+    adminEls.masterQueryMessage.textContent = "請先在欄位設定中顯示「資料分類」與「狀態」欄位，再儲存。";
+    return;
+  }
+  const newCategory = categorySelect.value;
+  const newStatus = statusSelect.value;
   button.disabled = true;
   button.textContent = "儲存中";
   withLoading("儲存品項設定中，請勿關閉視窗。", () => masterQueryRequest({ action: "update", pageId, newCategory, newStatus }))

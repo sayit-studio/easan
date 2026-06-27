@@ -99,7 +99,6 @@
           <button id="dashTabBtn" class="admin-tab active" type="button" data-tab="dashboard">儀表板</button>
           <button id="rawTabBtn" class="admin-tab" type="button" data-tab="raw">原始數據</button>
           <button id="masterTabBtn" class="admin-tab" type="button" data-tab="master">品項主檔</button>
-          <button id="masterImportTabBtn" class="admin-tab" type="button" data-tab="masterImport">主檔匯入</button>
           <button id="changelogTabBtn" class="admin-tab" type="button" data-tab="changelog">&#x6539;&#x7248;&#x7D00;&#x9304;</button>
           <button id="permissionsTabBtn" class="admin-tab hidden" type="button" data-tab="permissions">人員權限</button>
         </div>
@@ -175,21 +174,29 @@
               <h3>近期批次</h3>
             </div>
             <p class="result-note">點選批次列可展開該批次明細</p>
+            <div class="database-toolbar" aria-label="原始數據資料庫工具">
+              <label class="database-search">
+                搜尋
+                <input id="rawSearchInput" type="search" placeholder="批次、操作人、製令單號、通知">
+              </label>
+              <label>
+                狀態
+                <select id="rawStatusFilter">
+                  <option value="">全部狀態</option>
+                  <option value="normal">無異常</option>
+                  <option value="abnormal">有異常</option>
+                  <option value="notified">已通知</option>
+                </select>
+              </label>
+              <button id="rawResetViewBtn" class="ghost-btn" type="button">重設視角</button>
+            </div>
+            <details class="database-columns-panel">
+              <summary>欄位顯示與順序</summary>
+              <div id="rawColumnControls" class="database-column-list"></div>
+            </details>
             <div class="table-wrap">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>時間</th>
-                    <th>批次</th>
-                    <th>操作人</th>
-                    <th>製令單號</th>
-                    <th>總數</th>
-                    <th>通過</th>
-                    <th>異常</th>
-                    <th>正確率</th>
-                    <th>通知</th>
-                  </tr>
-                </thead>
+              <table class="admin-table raw-database-table">
+                <thead id="rawItemsHead"></thead>
                 <tbody id="recentBody">
                   <tr class="empty-row">
                     <td colspan="9">尚未讀取統計資料</td>
@@ -217,19 +224,36 @@
               </label>
               <button class="primary-btn" type="submit">查詢</button>
             </form>
+            <div class="database-toolbar" aria-label="品項主檔資料庫工具">
+              <label class="database-search">
+                搜尋
+                <input id="masterSearchInput" type="search" placeholder="品號、品名、規格、分類">
+              </label>
+              <label>
+                分類碼
+                <select id="masterCategoryCodeFilter">
+                  <option value="">全部分類碼</option>
+                </select>
+              </label>
+              <label>
+                狀態
+                <select id="masterStatusFilter">
+                  <option value="">全部狀態</option>
+                  <option value="啟用">啟用</option>
+                  <option value="停用">停用</option>
+                  <option value="未設定">未設定</option>
+                </select>
+              </label>
+              <button id="masterResetViewBtn" class="ghost-btn" type="button">重設視角</button>
+            </div>
+            <details class="database-columns-panel">
+              <summary>欄位顯示與順序</summary>
+              <div id="masterColumnControls" class="database-column-list"></div>
+            </details>
             <p id="masterQueryMessage" class="result-note">選擇分類後點「查詢」載入品項（預設不載入）。</p>
             <div class="table-wrap">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>品號</th>
-                    <th>品名</th>
-                    <th>規格</th>
-                    <th>分類</th>
-                    <th>狀態</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
+              <table class="admin-table master-database-table">
+                <thead id="masterItemsHead"></thead>
                 <tbody id="masterItemsBody">
                   <tr class="empty-row">
                     <td colspan="6">尚未查詢</td>
@@ -238,22 +262,6 @@
               </table>
             </div>
           </section>
-        </div>
-
-        <div id="permissionsView" class="admin-tab-view hidden">
-          <section class="result-panel">
-            <div class="section-title split-title">
-              <div>
-                <h3>人員權限</h3>
-              </div>
-              <button id="permissionsRefreshBtn" class="ghost-btn" type="button">重新讀取</button>
-            </div>
-            <div id="permissionMessage" class="result-note">讀取人員權限中...</div>
-            <div id="permissionList" class="permission-list"></div>
-          </section>
-        </div>
-
-        <div id="masterImportView" class="admin-tab-view hidden">
           <section class="result-panel">
             <div class="section-title">
               <h3>匯入品項主檔</h3>
@@ -309,6 +317,20 @@
                 </tbody>
               </table>
             </div>
+          </section>
+
+        </div>
+
+        <div id="permissionsView" class="admin-tab-view hidden">
+          <section class="result-panel">
+            <div class="section-title split-title">
+              <div>
+                <h3>人員權限</h3>
+              </div>
+              <button id="permissionsRefreshBtn" class="ghost-btn" type="button">重新讀取</button>
+            </div>
+            <div id="permissionMessage" class="result-note">讀取人員權限中...</div>
+            <div id="permissionList" class="permission-list"></div>
           </section>
         </div>
 

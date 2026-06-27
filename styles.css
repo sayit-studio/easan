@@ -1422,6 +1422,152 @@ th {
   min-width: 860px;
 }
 
+.database-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) minmax(140px, 180px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+.database-toolbar label,
+.database-columns-panel {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.database-toolbar label {
+  display: grid;
+  gap: 6px;
+}
+
+.database-toolbar input,
+.database-toolbar select {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--text);
+}
+
+.database-columns-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+}
+
+.database-columns-panel summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.database-column-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.database-column-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: grab;
+}
+
+.database-column-item:active {
+  cursor: grabbing;
+}
+
+.drag-handle {
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+
+.database-column-item label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.database-column-item input {
+  width: 16px;
+  height: 16px;
+}
+
+.column-order-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.column-order-actions .icon-btn {
+  width: 32px;
+  min-height: 32px;
+}
+
+.master-database-table,
+.raw-database-table {
+  min-width: 1120px;
+}
+
+.master-database-table th,
+.raw-database-table th {
+  user-select: none;
+  white-space: nowrap;
+}
+
+.master-database-table th[draggable="true"],
+.raw-database-table th[draggable="true"] {
+  cursor: grab;
+}
+
+.master-database-table th button,
+.raw-database-table th button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+  cursor: pointer;
+}
+
+.master-database-table th button:disabled,
+.raw-database-table th button:disabled {
+  cursor: default;
+}
+
+.master-database-table .wide-cell {
+  min-width: 300px;
+}
+
+.badge.neutral {
+  display: inline-grid;
+  place-items: center;
+  min-height: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .split-title {
   justify-content: space-between;
 }
@@ -1599,6 +1745,7 @@ th {
   .settings-panel,
   .admin-login-form,
   .master-import-form,
+  .database-toolbar,
   .admin-summary-grid {
     grid-template-columns: 1fr;
   }
